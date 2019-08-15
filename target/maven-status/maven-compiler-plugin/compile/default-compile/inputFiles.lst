@@ -1,0 +1,12 @@
+F:\Code\Tools\KafkaToPG\src\main\java\cn\itdeer\common\ConfigBean.java
+F:\Code\Tools\KafkaToPG\src\main\java\cn\itdeer\Main.java
+F:\Code\Tools\KafkaToPG\src\main\java\cn\itdeer\common\Constants.java
+F:\Code\Tools\KafkaToPG\src\main\java\cn\itdeer\common\Postgresql.java
+F:\Code\Tools\KafkaToPG\src\main\java\cn\itdeer\common\InitConfig.java
+F:\Code\Tools\KafkaToPG\src\main\java\cn\itdeer\common\Kafka.java
+F:\Code\Tools\KafkaToPG\src\main\java\cn\itdeer\common\OutputData.java
+F:\Code\Tools\KafkaToPG\src\main\java\cn\itdeer\common\InputData.java
+F:\Code\Tools\KafkaToPG\src\main\java\cn\itdeer\common\TopicToTable.java
+F:\Code\Tools\KafkaToPG\src\main\java\cn\itdeer\common\Commons.java
+F:\Code\Tools\KafkaToPG\src\main\java\cn\itdeer\common\Datasource.java
+F:\Code\Tools\KafkaToPG\src\main\java\cn\itdeer\kafka\ConsumerClient.java

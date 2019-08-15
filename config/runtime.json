@@ -1,0 +1,61 @@
+{
+  "kafka": {
+    "groupIdSuffix": "GROUP_ID_QW",
+    "autoCommitIntervalMs": "1000",
+    "maxPollRecords": "20000",
+    "fetchMaxBytes": "52428800",
+    "fetchMaxWaitMs": "1000",
+    "sessionTimeoutMs": "10000",
+    "heartbeatIntervalMs": "3000",
+    "maxPollIntervalMs": "60000",
+    "autoOffsetReset": "earliest",
+    "enableAutoCommit": "false",
+    "keyDeserializerClass": "org.apache.kafka.common.serialization.StringDeserializer",
+    "valueDeserializerClass": "org.apache.kafka.common.serialization.StringDeserializer"
+  },
+  "postgresql": {
+    "user": "demo",
+    "password": "12345678",
+    "port": "5432",
+    "host": "192.168.1.220"
+  },
+  "datasource": [
+    {
+      "topicToTable": {
+        "outputData": {
+          "bootstrapServers": "192.168.1.220:9092",
+          "topicName": "demo",
+          "format": "json"
+        },
+        "inputData": {
+          "database": "demo",
+          "table": "demo01"
+        },
+        "commons": {
+          "threads": "2",
+          "batchSize": "2000"
+        },
+        "mapping": "tagName:text,tagValue:decimal,isGood:boolean,sendTS:timestamp,piTS:timestamp"
+      }
+    },
+    {
+      "topicToTable": {
+        "outputData": {
+          "bootstrapServers": "192.168.1.220:9092",
+          "topicName": "test",
+          "format": "csv",
+          "separator" : ","
+        },
+        "inputData": {
+          "database": "demo",
+          "table": "demo02"
+        },
+        "commons": {
+          "threads": "2",
+          "batchSize": "2000"
+        },
+        "mapping": "name:text,age:integer,tagName:text,tagValue:decimal,isGood:boolean,sendTS:timestamp,piTS:timestamp"
+      }
+    }
+  ]
+}
