@@ -11,6 +11,9 @@ public class Constants {
     public static final String JSON = "json";
     public static final String CSV = "csv";
 
+    public static final String BATCH_TYPE = "batch";
+    public static final String COPY_TYPE = "copy";
+
     public static final String COLON = ":";
     public static final String COMMA = ",";
 }

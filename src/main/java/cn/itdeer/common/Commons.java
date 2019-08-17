@@ -14,4 +14,5 @@ import lombok.Data;
 public class Commons {
     private Integer threads;
     private Integer batchSize;
+    private String type;
 }

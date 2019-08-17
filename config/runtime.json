@@ -1,8 +1,8 @@
 {
   "kafka": {
-    "groupIdSuffix": "GROUP_ID_QW",
+    "groupIdSuffix": "GROUP_ID",
     "autoCommitIntervalMs": "1000",
-    "maxPollRecords": "20000",
+    "maxPollRecords": "100000",
     "fetchMaxBytes": "52428800",
     "fetchMaxWaitMs": "1000",
     "sessionTimeoutMs": "10000",
@@ -29,11 +29,11 @@
         },
         "inputData": {
           "database": "demo",
-          "table": "demo01"
+          "table": "demo"
         },
         "commons": {
           "threads": "2",
-          "batchSize": "2000"
+          "type" : "copy"
         },
         "mapping": "tagName:text,tagValue:decimal,isGood:boolean,sendTS:timestamp,piTS:timestamp"
       }
@@ -48,11 +48,11 @@
         },
         "inputData": {
           "database": "demo",
-          "table": "demo02"
+          "table": "test"
         },
         "commons": {
           "threads": "2",
-          "batchSize": "2000"
+          "type" : "copy"
         },
         "mapping": "name:text,age:integer,tagName:text,tagValue:decimal,isGood:boolean,sendTS:timestamp,piTS:timestamp"
       }

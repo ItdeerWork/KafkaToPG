@@ -3,7 +3,7 @@ package cn.itdeer;
 import cn.itdeer.common.Constants;
 import cn.itdeer.common.Datasource;
 import cn.itdeer.common.InitConfig;
-import cn.itdeer.kafka.ConsumerClient;
+import cn.itdeer.core.InitConsumer;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
@@ -19,13 +19,11 @@ import java.util.List;
 public class Main {
     public static void main(String[] args) {
         List<Datasource> list = InitConfig.getDataSource();
-
         for (Datasource ds : list) {
             String[] fields = splitMapping(ds.getTopicToTable().getMapping());
             for (int i = 1; i <= ds.getTopicToTable().getCommons().getThreads(); i++) {
-                Thread thread = new ConsumerClient(InitConfig.getConfigBean().getKafka(), ds.getTopicToTable(), fields);
-                thread.start();
-                log.info("Thread ID:{}    Thread Name:{}    for Topic Name:{}    PostGreSQL Table Name:{}  The thread has started", thread.getId(), thread.getName(), ds.getTopicToTable().getOutputData().getTopicName(), ds.getTopicToTable().getInputData().getTable());
+                new InitConsumer(InitConfig.getConfigBean().getKafka(), ds.getTopicToTable(), fields);
+                //log.info("Thread ID:{}    Thread Name:{}    for Topic Name:{}    PostGreSQL Table Name:{}  The thread has started", thread.getId(), thread.getName(), ds.getTopicToTable().getOutputData().getTopicName(), ds.getTopicToTable().getInputData().getTable());
             }
         }
     }

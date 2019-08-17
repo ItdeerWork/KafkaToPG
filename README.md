@@ -9,12 +9,8 @@ Maven：3.3.9+
 mvn clean package
 
 运行命令：
-在KafkaToPG-1.0.0.jar所在的目录，创建名为config的目录，
+在KafkaToPG-2.0.0.jar所在的目录，创建名为config的目录，
 在config目录中创建runtime.json的配置文件，配置一下必要的参数即可运行起来
-
-PG库需要提前创建，PG表可以不用提前创建，程序会自动创建，也可以提前创建，不会覆盖掉，
-当Kafka数据格式为CSV是需要“outputData” 多配置一个 ["separator" : ","] 分隔符是根据数据进行更改
-目前只能支持Kafka主题 CSV和JSON 的格式
 
 java -jar KafkaToPG-1.0.0.jar
 
@@ -23,6 +19,21 @@ java -jar KafkaToPG-1.0.0.jar
 后台运行启动命令
 
 nohup java -jar KafkaToPG-1.0.0.jar &
+```
+
+### 说明
+
+```
+
+1. PG库需要提前创建，PG表可以不用提前创建，程序会自动创建，也可以提前创建，不会覆盖掉。
+
+2 当Kafka数据格式为CSV是需要“outputData”配置中 多配置一个 "separator" : ","分隔符的配置项 分隔符是根据数据进行更改
+
+3. 目前只能支持Kafka主题数据为 CSV和JSON 两种格式
+
+4. 插入PostGRESQL的方式支持两种方式,batch和copy这两种方式，
+    batch方式的插入速率相对较低，当需要实时同步的数据量较小的时候建议使用，
+    当实时的数据量较大时建议使用copy方式
 ```
 
 ### 应用程序整体的配置说明
@@ -63,6 +74,7 @@ nohup java -jar KafkaToPG-1.0.0.jar &
         },
         "commons": {        //其他配置
           "threads": "2",       //启动的线程数
+          "type" : "batch",     //选用哪一种方式进行插入数据（当选择batch方式，则需要配置batchSize的属性，当配置为copy时，可以不用配置batchSize）
           "batchSize": "2000"       //批处理的大小
         },
         "mapping": "tagName:text,tagValue:decimal,isGood:boolean,sendTS:timestamp,piTS:timestamp"       //对应关系，CSV要按照数据顺序配置
@@ -82,7 +94,7 @@ nohup java -jar KafkaToPG-1.0.0.jar &
         },
         "commons": {
           "threads": "2",
-          "batchSize": "2000"
+          "type" : "copy"
         },
         "mapping": "name:text,age:integer,tagName:text,tagValue:decimal,isGood:boolean,sendTS:timestamp,piTS:timestamp"
       }
@@ -306,6 +318,14 @@ nohup java -jar KafkaToPG-1.0.0.jar &
     参数名称：threads
     默认值：1
     说明：针对获取kafka主题的数据需要并行的线程数
+    ``` 
+
+  - type 
+ 
+    ```
+    参数名称：type
+    默认值：copy,batch
+    说明：插入数据的方式,当选择了batch方式，则需要配置batchSize选项
     ``` 
 
   - batchSize 
