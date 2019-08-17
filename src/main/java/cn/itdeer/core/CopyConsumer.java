@@ -82,11 +82,15 @@ public class CopyConsumer extends Thread {
             while (true) {
                 ConsumerRecords<String, String> records = consumer.poll(100);
                 for (ConsumerRecord<String, String> record : records) {
-                    JSONObject jsonObject = JSON.parseObject(record.value());
-                    for (int i = 0; i < field_size; i++) {
-                        sb.append(jsonObject.get(fields[i]).toString() + ",");
+                    try {
+                        JSONObject jsonObject = JSON.parseObject(record.value());
+                        for (int i = 0; i < field_size; i++) {
+                            sb.append(jsonObject.get(fields[i]).toString() + ",");
+                        }
+                        sb.append(jsonObject.get(fields[field_size]).toString() + "\n");
+                    } catch (Exception e) {
+                        log.error("Insert mode is [copy], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:", record.value(), e.getStackTrace());
                     }
-                    sb.append(jsonObject.get(fields[field_size]).toString() + "\n");
                 }
                 copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS ','", new ByteArrayInputStream(sb.toString().getBytes()));
                 sb.setLength(0);
@@ -106,7 +110,11 @@ public class CopyConsumer extends Thread {
             while (true) {
                 ConsumerRecords<String, String> records = consumer.poll(100);
                 for (ConsumerRecord<String, String> record : records) {
-                    sb.append(record.value() + "\n");
+                    try {
+                        sb.append(record.value() + "\n");
+                    } catch (Exception e) {
+                        log.error("Insert mode is [copy], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:", record.value(), e.getStackTrace());
+                    }
                 }
                 copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS '" + ttt.getOutputData().getSeparator() + "'", new ByteArrayInputStream(sb.toString().getBytes()));
                 sb.setLength(0);

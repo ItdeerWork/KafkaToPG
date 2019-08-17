@@ -92,16 +92,20 @@ public class BatchConsumer extends Thread {
             while (true) {
                 ConsumerRecords<String, String> records = consumer.poll(100);
                 for (ConsumerRecord<String, String> record : records) {
-                    JSONObject jsonObject = JSON.parseObject(record.value());
+                    try {
+                        JSONObject jsonObject = JSON.parseObject(record.value());
 
-                    insertSql = insertSql + " (";
-                    for (String filed : fields) {
-                        insertSql = insertSql + "'" + jsonObject.get(filed) + "',";
+                        insertSql = insertSql + " (";
+                        for (String filed : fields) {
+                            insertSql = insertSql + "'" + jsonObject.get(filed) + "',";
+                        }
+                        insertSql = insertSql.substring(0, insertSql.length() - 1) + ") ";
+                        stmt.addBatch(insertSql);
+                        number++;
+                        insertSql = sqlPrefix;
+                    } catch (Exception e) {
+                        log.error("Insert mode is [batch], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:", record.value(), e.getStackTrace());
                     }
-                    insertSql = insertSql.substring(0, insertSql.length() - 1) + ") ";
-                    stmt.addBatch(insertSql);
-                    number++;
-                    insertSql = sqlPrefix;
                 }
                 number = inputBatch(connection, stmt, batchSize, number);
             }
@@ -126,16 +130,20 @@ public class BatchConsumer extends Thread {
             while (true) {
                 ConsumerRecords<String, String> records = consumer.poll(100);
                 for (ConsumerRecord<String, String> record : records) {
-                    String[] values = record.value().split(separator);
-                    insertSql = insertSql + " (";
+                    try {
+                        String[] values = record.value().split(separator);
+                        insertSql = insertSql + " (";
 
-                    for (int i = 0; i < fields.length; i++) {
-                        insertSql = insertSql + "'" + values[i] + "',";
+                        for (int i = 0; i < fields.length; i++) {
+                            insertSql = insertSql + "'" + values[i] + "',";
+                        }
+                        insertSql = insertSql.substring(0, insertSql.length() - 1) + ") ";
+                        stmt.addBatch(insertSql);
+                        number++;
+                        insertSql = sqlPrefix;
+                    } catch (Exception e) {
+                        log.error("Insert mode is [batch], Kafka data format is [csv], An error occurred while parsing [{}] data. The error information is as follows:", record.value(), e.getStackTrace());
                     }
-                    insertSql = insertSql.substring(0, insertSql.length() - 1) + ") ";
-                    stmt.addBatch(insertSql);
-                    number++;
-                    insertSql = sqlPrefix;
                 }
                 number = inputBatch(connection, stmt, batchSize, number);
             }
