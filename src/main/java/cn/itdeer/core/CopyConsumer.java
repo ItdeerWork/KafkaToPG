@@ -116,10 +116,13 @@ public class CopyConsumer extends Thread {
                         log.error("Insert mode is [copy], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:", record.value(), e.getStackTrace());
                     }
                 }
-                copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS '" + ttt.getOutputData().getSeparator() + "'", new ByteArrayInputStream(sb.toString().getBytes()));
-                sb.setLength(0);
-                baseConn.commit();
-                consumer.commitSync();
+
+                if (sb.length() > 0) {
+                    copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS '" + ttt.getOutputData().getSeparator() + "'", new ByteArrayInputStream(sb.toString().getBytes()));
+                    sb.setLength(0);
+                    baseConn.commit();
+                    consumer.commitSync();
+                }
             }
         } catch (Exception e) {
             log.error("Parsing kafka csv format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
