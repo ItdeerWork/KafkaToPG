@@ -118,7 +118,6 @@ public class CopyConsumer extends Thread {
                         log.error("Insert mode is [copy], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:", record.value(), e.getStackTrace());
                     }
                 }
-
                 if (sb.length() > 0) {
                     copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS '" + ttt.getOutputData().getSeparator() + "'", new ByteArrayInputStream(sb.toString().getBytes()));
                     sb.setLength(0);
