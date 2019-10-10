@@ -1,6 +1,6 @@
 {
   "kafka": {
-    "groupIdSuffix": "GROUP_ID",
+    "groupIdSuffix": "GROUP_ID_SPM",
     "autoCommitIntervalMs": "1000",
     "maxPollRecords": "100000",
     "fetchMaxBytes": "52428800",
@@ -14,47 +14,29 @@
     "valueDeserializerClass": "org.apache.kafka.common.serialization.StringDeserializer"
   },
   "postgresql": {
-    "user": "demo",
-    "password": "12345678",
+    "user": "tsdb",
+    "password": "tsdb!@#$",
     "port": "5432",
-    "host": "192.168.1.220"
+    "host": "172.24.4.55"
   },
   "datasource": [
     {
       "topicToTable": {
         "outputData": {
-          "bootstrapServers": "192.168.1.220:9092",
-          "topicName": "demo",
-          "format": "json"
-        },
-        "inputData": {
-          "database": "demo",
-          "table": "demo"
-        },
-        "commons": {
-          "threads": "2",
-          "type" : "copy"
-        },
-        "mapping": "tagName:text,tagValue:decimal,isGood:boolean,sendTS:timestamp,piTS:timestamp"
-      }
-    },
-    {
-      "topicToTable": {
-        "outputData": {
-          "bootstrapServers": "192.168.1.220:9092",
-          "topicName": "test",
+          "bootstrapServers": "172.24.4.35:6667,172.24.4.36:6667,172.24.4.37:6667",
+          "topicName": "spm",
           "format": "csv",
-          "separator" : ","
+          "separator": ","
         },
         "inputData": {
-          "database": "demo",
-          "table": "test"
+          "database": "spmdb",
+          "table": "spm"
         },
         "commons": {
-          "threads": "2",
+          "threads": "1",
           "type" : "copy"
         },
-        "mapping": "name:text,age:integer,tagName:text,tagValue:decimal,isGood:boolean,sendTS:timestamp,piTS:timestamp"
+        "mapping": "tagname:text,tagvalue:decimal,isgood:boolean,sendts:timestamp,pits:timestamp"
       }
     }
   ]

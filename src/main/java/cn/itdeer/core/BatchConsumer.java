@@ -86,10 +86,11 @@ public class BatchConsumer extends Thread {
      * @param batchSize  批处理大小
      */
     private void jsonData(Connection connection, Statement stmt, String sqlPrefix, int batchSize) {
-        try {
-            int number = 0;
-            String insertSql = sqlPrefix;
-            while (true) {
+
+        int number = 0;
+        String insertSql = sqlPrefix;
+        while (true) {
+            try {
                 ConsumerRecords<String, String> records = consumer.poll(100);
                 for (ConsumerRecord<String, String> record : records) {
                     try {
@@ -108,10 +109,12 @@ public class BatchConsumer extends Thread {
                     }
                 }
                 number = inputBatch(connection, stmt, batchSize, number);
+            } catch (SQLException e) {
+                log.error("Parsing kafka json format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
+                log.error("The data that caused the error is:[{}]", insertSql);
             }
-        } catch (SQLException e) {
-            log.error("Parsing kafka json format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
         }
+
     }
 
     /**
@@ -123,11 +126,12 @@ public class BatchConsumer extends Thread {
      * @param batchSize  批处理大小
      */
     private void csvData(Connection connection, Statement stmt, String sqlPrefix, int batchSize) {
-        try {
-            int number = 0;
-            String insertSql = sqlPrefix;
-            String separator = ttt.getOutputData().getSeparator() == null ? Constants.COMMA : ttt.getOutputData().getSeparator();
-            while (true) {
+
+        int number = 0;
+        String insertSql = sqlPrefix;
+        String separator = ttt.getOutputData().getSeparator() == null ? Constants.COMMA : ttt.getOutputData().getSeparator();
+        while (true) {
+            try {
                 ConsumerRecords<String, String> records = consumer.poll(100);
                 for (ConsumerRecord<String, String> record : records) {
                     try {
@@ -146,10 +150,12 @@ public class BatchConsumer extends Thread {
                     }
                 }
                 number = inputBatch(connection, stmt, batchSize, number);
+            } catch (SQLException e) {
+                log.error("Parsing kafka csv format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
+                log.error("The data that caused the error is:[{}]", insertSql);
             }
-        } catch (SQLException e) {
-            log.error("Parsing kafka csv format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
         }
+
     }
 
     /**

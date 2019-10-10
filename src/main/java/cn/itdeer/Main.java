@@ -23,7 +23,6 @@ public class Main {
             String[] fields = splitMapping(ds.getTopicToTable().getMapping());
             for (int i = 1; i <= ds.getTopicToTable().getCommons().getThreads(); i++) {
                 new InitConsumer(InitConfig.getConfigBean().getKafka(), ds.getTopicToTable(), fields);
-                //log.info("Thread ID:{}    Thread Name:{}    for Topic Name:{}    PostGreSQL Table Name:{}  The thread has started", thread.getId(), thread.getName(), ds.getTopicToTable().getOutputData().getTopicName(), ds.getTopicToTable().getInputData().getTable());
             }
         }
     }

@@ -78,8 +78,8 @@ public class CopyConsumer extends Thread {
      */
     private void jsonData() {
         int field_size = fields.length - 1;
-        try {
-            while (true) {
+        while (true) {
+            try {
                 ConsumerRecords<String, String> records = consumer.poll(100);
                 for (ConsumerRecord<String, String> record : records) {
                     try {
@@ -96,9 +96,11 @@ public class CopyConsumer extends Thread {
                 sb.setLength(0);
                 baseConn.commit();
                 consumer.commitSync();
+            } catch (Exception e) {
+                log.error("Parsing kafka json format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
+                log.error("The data that caused the error is:[{}]", sb.toString());
+                sb.setLength(0);
             }
-        } catch (Exception e) {
-            log.error("Parsing kafka json format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
         }
     }
 
@@ -106,8 +108,8 @@ public class CopyConsumer extends Thread {
      * 数据为CSV格式
      */
     private void csvData() {
-        try {
-            while (true) {
+        while (true) {
+            try {
                 ConsumerRecords<String, String> records = consumer.poll(100);
                 for (ConsumerRecord<String, String> record : records) {
                     try {
@@ -123,9 +125,11 @@ public class CopyConsumer extends Thread {
                     baseConn.commit();
                     consumer.commitSync();
                 }
+            } catch (Exception e) {
+                log.error("Parsing kafka csv format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
+                log.error("The data that caused the error is:[{}]", sb.toString());
+                sb.setLength(0);
             }
-        } catch (Exception e) {
-            log.error("Parsing kafka csv format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
         }
     }
 
