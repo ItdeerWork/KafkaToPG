@@ -32,6 +32,7 @@ public class CopyConsumer extends Thread {
     private BaseConnection baseConn;
     private CopyManager copyManager;
     private StringBuffer sb;
+    private String tmp = "";
 
     /**
      * 构造函数 父类进行实例化，这里直接可以使用
@@ -49,6 +50,8 @@ public class CopyConsumer extends Thread {
         try {
             baseConn = (BaseConnection) connection.getMetaData().getConnection();
             copyManager = new CopyManager(baseConn);
+            System.out.println(" 连接信息：" + baseConn);
+            System.out.println(" 连接信息：" + copyManager);
         } catch (SQLException e) {
             log.error("Error converting druid connection pool connections to postgresql connections. Error message:[{}]", e.getStackTrace());
         }
@@ -93,9 +96,9 @@ public class CopyConsumer extends Thread {
                     }
                 }
                 copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS ','", new ByteArrayInputStream(sb.toString().getBytes()));
-                sb.setLength(0);
                 baseConn.commit();
                 consumer.commitSync();
+                sb.setLength(0);
             } catch (Exception e) {
                 log.error("Parsing kafka json format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
                 log.error("The data that caused the error is:[{}]", sb.toString());
@@ -108,27 +111,33 @@ public class CopyConsumer extends Thread {
      * 数据为CSV格式
      */
     private void csvData() {
+        int num = 0;
         while (true) {
-            try {
-                ConsumerRecords<String, String> records = consumer.poll(100);
-                for (ConsumerRecord<String, String> record : records) {
-                    try {
-                        sb.append(record.value() + "\n");
-                    } catch (Exception e) {
-                        log.error("Insert mode is [copy], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:", record.value(), e.getStackTrace());
-                    }
+            ConsumerRecords<String, String> records = consumer.poll(100);
+            for (ConsumerRecord<String, String> record : records) {
+                try {
+                    tmp = tmp + record.value() + "\n";
+                    num++;
+                } catch (Exception e) {
+                    log.error("Insert mode is [copy], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:", record.value(), e.getStackTrace());
                 }
-                if (sb.length() > 0) {
-                    copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS '" + ttt.getOutputData().getSeparator() + "'", new ByteArrayInputStream(sb.toString().getBytes()));
-                    sb.setLength(0);
+            }
+
+            try {
+                if (tmp != "") {
+                    System.out.println(num);
+                    copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS '" + ttt.getOutputData().getSeparator() + "'", new ByteArrayInputStream(tmp.getBytes()));
                     baseConn.commit();
                     consumer.commitSync();
+                    log.info("发送成功");
+                    tmp = "";
                 }
             } catch (Exception e) {
                 log.error("Parsing kafka csv format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
-                log.error("The data that caused the error is:[{}]", sb.toString());
-                sb.setLength(0);
+                System.out.println(e.toString());
+//                    log.error("The data that caused the error is:[{}]", tmp);
             }
+
         }
     }
 
