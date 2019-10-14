@@ -58,7 +58,7 @@ public class InitConsumer {
      *
      * @param type 设置处理类型
      */
-    public void init(String type) {
+/*    public void init(String type) {
 
         Properties properties = new Properties();
         properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, ttt.getOutputData().getBootstrapServers());
@@ -93,6 +93,47 @@ public class InitConsumer {
                     new BatchConsumer(consumer, ttt, fields, connection, stmt).start();
                 case Constants.COPY_TYPE:
                     new CopyConsumer(consumer, ttt, fields, connection).start();
+            }
+        } catch (Exception e) {
+            log.error("Error retrieving connection from connection pool or instantiating processing instance. Error message:[{}]", e.getStackTrace());
+        }
+    }*/
+
+    public void init(String type) {
+
+        Properties properties = new Properties();
+        properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, ttt.getOutputData().getBootstrapServers());
+        properties.put(ConsumerConfig.GROUP_ID_CONFIG, ttt.getOutputData().getTopicName() + "_" + kafka.getGroupIdSuffix());
+        properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, kafka.getKeyDeserializerClass());
+        properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, kafka.getValueDeserializerClass());
+        properties.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, kafka.getAutoCommitIntervalMs());
+        properties.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, kafka.getMaxPollRecords());
+        properties.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG, kafka.getFetchMaxBytes());
+        properties.put(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG, kafka.getFetchMaxWaitMs());
+        properties.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, kafka.getSessionTimeoutMs());
+        properties.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, kafka.getHeartbeatIntervalMs());
+        properties.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, kafka.getMaxPollIntervalMs());
+        properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, kafka.getAutoOffsetReset());
+        properties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, kafka.getEnableAutoCommit());
+
+        consumer = new KafkaConsumer(properties);
+        consumer.subscribe(Arrays.asList(ttt.getOutputData().getTopicName()));
+
+        Map<String, DruidDataSource> map = InitConfig.getConnectionMap();
+        dds = map.get(ttt.getInputData().getTable());
+
+        try {
+            connection = dds.getConnection();
+            connection.setAutoCommit(false);
+            stmt = connection.createStatement();
+
+            log.info("Start initializing [{}] processing instance of type [{}]", type, type);
+
+            switch (type) {
+                case Constants.BATCH_TYPE:
+                    new BatchConsumer(consumer, ttt, fields, connection, stmt).start();
+                case Constants.COPY_TYPE:
+                    new CopyConsumer(consumer, ttt, fields, connection,dds).start();
             }
         } catch (Exception e) {
             log.error("Error retrieving connection from connection pool or instantiating processing instance. Error message:[{}]", e.getStackTrace());

@@ -2,6 +2,7 @@ package cn.itdeer.core;
 
 import cn.itdeer.common.Constants;
 import cn.itdeer.common.TopicToTable;
+import com.alibaba.druid.pool.DruidDataSource;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import lombok.extern.slf4j.Slf4j;
@@ -30,8 +31,9 @@ public class CopyConsumer extends Thread {
     private String[] fields = null;
 
     private BaseConnection baseConn;
-    private CopyManager copyManager;
+    private CopyManager copyManager = null;
     private StringBuffer sb;
+    private DruidDataSource dds;
 
     /**
      * 构造函数 父类进行实例化，这里直接可以使用
@@ -41,21 +43,39 @@ public class CopyConsumer extends Thread {
      * @param fields     字段列表实例
      * @param connection 数据库连接实例
      */
-    public CopyConsumer(KafkaConsumer<String, String> consumer, TopicToTable ttt, String[] fields, Connection connection) {
+    public CopyConsumer(KafkaConsumer<String, String> consumer, TopicToTable ttt, String[] fields, Connection connection, DruidDataSource dds) {
         this.consumer = consumer;
         this.ttt = ttt;
         this.fields = fields;
+        this.dds = dds;
 
-        try {
-            baseConn = (BaseConnection) connection.getMetaData().getConnection();
-            copyManager = new CopyManager(baseConn);
-        } catch (SQLException e) {
-            log.error("Error converting druid connection pool connections to postgresql connections. Error message:[{}]", e.getStackTrace());
-        }
+//        try {
+//            baseConn = (BaseConnection) connection.getMetaData().getConnection();
+//            copyManager = new CopyManager(baseConn);
+//        } catch (SQLException e) {
+//            log.error("Error converting druid connection pool connections to postgresql connections. Error message:[{}]", e.getStackTrace());
+//        }
 
-        sb = new StringBuffer();
+        init();
+
+        sb = new StringBuffer(10000);
 
         addShutdownHook();
+    }
+
+    private CopyManager init() {
+        if (copyManager == null) {
+            Connection connection;
+            try {
+                connection = dds.getConnection();
+                connection.setAutoCommit(false);
+                baseConn = (BaseConnection) connection.getMetaData().getConnection();
+                copyManager = new CopyManager(baseConn);
+            } catch (Exception e) {
+                log.error("Error retrieving connection from connection pool or instantiating processing instance. Error message:[{}]", e.getStackTrace());
+            }
+        }
+        return copyManager;
     }
 
     /**
@@ -108,26 +128,41 @@ public class CopyConsumer extends Thread {
      * 数据为CSV格式
      */
     private void csvData() {
+        int num = 0;
         while (true) {
 
             ConsumerRecords<String, String> records = consumer.poll(100);
             for (ConsumerRecord<String, String> record : records) {
                 try {
                     sb.append(record.value() + "\n");
+                    num++;
                 } catch (Exception e) {
                     log.error("Insert mode is [copy], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:", record.value(), e.getStackTrace());
                 }
             }
             if (sb.length() > 0) {
                 try {
-                    copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS '" + ttt.getOutputData().getSeparator() + "'", new ByteArrayInputStream(sb.toString().getBytes()));
+                    if(copyManager == null){
+                        init();
+                    }
+                    System.out.println(copyManager);
+                    System.out.println(num);
+                    System.out.println(sb.toString().substring(0, 20));
+                    num = 0;
+                    System.out.println(1);
+                    copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN WITH NULL '\\n'", new ByteArrayInputStream(sb.toString().getBytes()));
+                    System.out.println(2);
                     baseConn.commit();
-                    consumer.commitSync();
+                    System.out.println(3);
+//                    consumer.commitSync();
+                    consumer.commitAsync();
+                    System.out.println(4);
                     sb.setLength(0);
+                    System.out.println(5);
                     log.info("发送成功");
                 } catch (Exception e) {
                     log.error("Parsing kafka csv format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
-                    log.error("The data that caused the error is:[{}]", sb.toString());
+//                    log.error("The data that caused the error is:[{}]", sb.toString());
                     sb.setLength(0);
                 }
             }

@@ -144,13 +144,17 @@ public class BatchConsumer extends Thread {
                         insertSql = insertSql.substring(0, insertSql.length() - 1) + ") ";
                         stmt.addBatch(insertSql);
                         number++;
-                        insertSql = sqlPrefix;
+                        if(number >= batchSize){
+                            number = inputBatch(connection, stmt, batchSize, number);
+                            insertSql = sqlPrefix;
+                        }
+
                     } catch (Exception e) {
                         log.error("Insert mode is [batch], Kafka data format is [csv], An error occurred while parsing [{}] data. The error information is as follows:", record.value(), e.getStackTrace());
                     }
                 }
-                number = inputBatch(connection, stmt, batchSize, number);
-            } catch (SQLException e) {
+
+            } catch (Exception e) {
                 log.error("Parsing kafka csv format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
                 log.error("The data that caused the error is:[{}]", insertSql);
             }
@@ -170,6 +174,7 @@ public class BatchConsumer extends Thread {
      */
     private int inputBatch(Connection connection, Statement stmt, int batchSize, int number) throws SQLException {
         if (number >= batchSize) {
+            System.out.println("AA:" + number);
             stmt.executeBatch();
             connection.commit();
             stmt.clearBatch();
