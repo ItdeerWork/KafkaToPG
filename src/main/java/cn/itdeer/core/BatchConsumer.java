@@ -2,6 +2,7 @@ package cn.itdeer.core;
 
 import cn.itdeer.common.Constants;
 import cn.itdeer.common.TopicToTable;
+import com.alibaba.druid.pool.DruidDataSource;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import lombok.extern.slf4j.Slf4j;
@@ -23,29 +24,42 @@ import java.sql.Statement;
 @Slf4j
 public class BatchConsumer extends Thread {
 
-    private KafkaConsumer<String, String> consumer;
+    private volatile KafkaConsumer<String, String> consumer;
     private TopicToTable ttt;
     private String[] fields = null;
 
     private Connection connection;
     private Statement stmt;
+    private DruidDataSource dds;
 
     /**
      * 构造函数 父类进行实例化，这里直接可以使用
      *
-     * @param consumer   消费者实例
-     * @param ttt        数据流向配置实例
-     * @param fields     字段列表实例
-     * @param connection 数据库连接实例
-     * @param stmt       SQL执行器实例
+     * @param consumer 消费者实例
+     * @param ttt      数据流向配置实例
+     * @param fields   字段列表实例
+     * @param dds      连接池信息
      */
-    public BatchConsumer(KafkaConsumer<String, String> consumer, TopicToTable ttt, String[] fields, Connection connection, Statement stmt) {
+    public BatchConsumer(KafkaConsumer<String, String> consumer, TopicToTable ttt, String[] fields, DruidDataSource dds) {
         this.consumer = consumer;
         this.ttt = ttt;
         this.fields = fields;
-        this.connection = connection;
-        this.stmt = stmt;
+        this.dds = dds;
+        init();
         addShutdownHook();
+    }
+
+    /**
+     * 初始化连接信息
+     */
+    private void init() {
+        try {
+            connection = dds.getConnection();
+            connection.setAutoCommit(false);
+            stmt = connection.createStatement();
+        } catch (Exception e) {
+            log.error("Error retrieving connection from connection pool or instantiating processing instance. Error message:[{}]", e.getStackTrace());
+        }
     }
 
     /**
@@ -90,31 +104,27 @@ public class BatchConsumer extends Thread {
         int number = 0;
         String insertSql = sqlPrefix;
         while (true) {
-            try {
-                ConsumerRecords<String, String> records = consumer.poll(100);
-                for (ConsumerRecord<String, String> record : records) {
-                    try {
-                        JSONObject jsonObject = JSON.parseObject(record.value());
+            ConsumerRecords<String, String> records = consumer.poll(100);
+            for (ConsumerRecord<String, String> record : records) {
+                try {
+                    JSONObject jsonObject = JSON.parseObject(record.value());
 
-                        insertSql = insertSql + " (";
-                        for (String filed : fields) {
-                            insertSql = insertSql + "'" + jsonObject.get(filed) + "',";
-                        }
-                        insertSql = insertSql.substring(0, insertSql.length() - 1) + ") ";
-                        stmt.addBatch(insertSql);
-                        number++;
-                        insertSql = sqlPrefix;
-                    } catch (Exception e) {
-                        log.error("Insert mode is [batch], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:", record.value(), e.getStackTrace());
+                    insertSql = insertSql + " (";
+                    for (String filed : fields) {
+                        insertSql = insertSql + "'" + jsonObject.get(filed) + "',";
                     }
+                    insertSql = insertSql.substring(0, insertSql.length() - 1) + ") ";
+                    stmt.addBatch(insertSql);
+                    number++;
+                    if (number == batchSize) {
+                        number = inputBatch(connection, stmt, batchSize, number);
+                    }
+                    insertSql = sqlPrefix;
+                } catch (Exception e) {
+                    log.error("Insert mode is [batch], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:", record.value(), e.getStackTrace());
                 }
-                number = inputBatch(connection, stmt, batchSize, number);
-            } catch (SQLException e) {
-                log.error("Parsing kafka json format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
-                log.error("The data that caused the error is:[{}]", insertSql);
             }
         }
-
     }
 
     /**
@@ -131,35 +141,27 @@ public class BatchConsumer extends Thread {
         String insertSql = sqlPrefix;
         String separator = ttt.getOutputData().getSeparator() == null ? Constants.COMMA : ttt.getOutputData().getSeparator();
         while (true) {
-            try {
-                ConsumerRecords<String, String> records = consumer.poll(100);
-                for (ConsumerRecord<String, String> record : records) {
-                    try {
-                        String[] values = record.value().split(separator);
-                        insertSql = insertSql + " (";
+            ConsumerRecords<String, String> records = consumer.poll(100);
+            for (ConsumerRecord<String, String> record : records) {
+                try {
+                    String[] values = record.value().split(separator);
+                    insertSql = insertSql + " (";
 
-                        for (int i = 0; i < fields.length; i++) {
-                            insertSql = insertSql + "'" + values[i] + "',";
-                        }
-                        insertSql = insertSql.substring(0, insertSql.length() - 1) + ") ";
-                        stmt.addBatch(insertSql);
-                        number++;
-                        if(number >= batchSize){
-                            number = inputBatch(connection, stmt, batchSize, number);
-                            insertSql = sqlPrefix;
-                        }
-
-                    } catch (Exception e) {
-                        log.error("Insert mode is [batch], Kafka data format is [csv], An error occurred while parsing [{}] data. The error information is as follows:", record.value(), e.getStackTrace());
+                    for (int i = 0; i < fields.length; i++) {
+                        insertSql = insertSql + "'" + values[i] + "',";
                     }
+                    insertSql = insertSql.substring(0, insertSql.length() - 1) + ") ";
+                    stmt.addBatch(insertSql);
+                    number++;
+                    if (number == batchSize) {
+                        number = inputBatch(connection, stmt, batchSize, number);
+                    }
+                    insertSql = sqlPrefix;
+                } catch (Exception e) {
+                    log.error("Insert mode is [batch], Kafka data format is [csv], An error occurred while parsing [{}] data. The error information is as follows:", record.value(), e.getStackTrace());
                 }
-
-            } catch (Exception e) {
-                log.error("Parsing kafka csv format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
-                log.error("The data that caused the error is:[{}]", insertSql);
             }
         }
-
     }
 
     /**
@@ -173,12 +175,16 @@ public class BatchConsumer extends Thread {
      * @throws SQLException
      */
     private int inputBatch(Connection connection, Statement stmt, int batchSize, int number) throws SQLException {
+        if (stmt == null || connection == null)
+            init();
+
         if (number >= batchSize) {
-            System.out.println("AA:" + number);
+
             stmt.executeBatch();
             connection.commit();
             stmt.clearBatch();
             consumer.commitSync();
+            System.out.println("AA:"+number);
             number = 0;
         }
         return number;

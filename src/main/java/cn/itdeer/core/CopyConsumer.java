@@ -38,31 +38,26 @@ public class CopyConsumer extends Thread {
     /**
      * 构造函数 父类进行实例化，这里直接可以使用
      *
-     * @param consumer   消费者实例
-     * @param ttt        数据流向配置实例
-     * @param fields     字段列表实例
-     * @param connection 数据库连接实例
+     * @param consumer 消费者实例
+     * @param ttt      数据流向配置实例
+     * @param fields   字段列表实例
+     * @param dds      连接池信息
      */
-    public CopyConsumer(KafkaConsumer<String, String> consumer, TopicToTable ttt, String[] fields, Connection connection, DruidDataSource dds) {
+    public CopyConsumer(KafkaConsumer<String, String> consumer, TopicToTable ttt, String[] fields, DruidDataSource dds) {
         this.consumer = consumer;
         this.ttt = ttt;
         this.fields = fields;
         this.dds = dds;
-
-//        try {
-//            baseConn = (BaseConnection) connection.getMetaData().getConnection();
-//            copyManager = new CopyManager(baseConn);
-//        } catch (SQLException e) {
-//            log.error("Error converting druid connection pool connections to postgresql connections. Error message:[{}]", e.getStackTrace());
-//        }
-
         init();
-
-        sb = new StringBuffer(10000);
-
+        sb = new StringBuffer(1000);
         addShutdownHook();
     }
 
+    /**
+     * 初始化连接信息
+     *
+     * @return CopyManager 通道管理实例
+     */
     private CopyManager init() {
         if (copyManager == null) {
             Connection connection;
@@ -112,10 +107,17 @@ public class CopyConsumer extends Thread {
                         log.error("Insert mode is [copy], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:", record.value(), e.getStackTrace());
                     }
                 }
-                copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS ','", new ByteArrayInputStream(sb.toString().getBytes()));
-                baseConn.commit();
-                consumer.commitSync();
-                sb.setLength(0);
+
+                if (sb.length() > 0) {
+                    if (copyManager == null) {
+                        init();
+                    }
+                    copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS ','", new ByteArrayInputStream(sb.toString().getBytes()));
+                    baseConn.commit();
+                    consumer.commitAsync();
+                    sb.setLength(0);
+                }
+
             } catch (Exception e) {
                 log.error("Parsing kafka json format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
                 log.error("The data that caused the error is:[{}]", sb.toString());
@@ -142,15 +144,15 @@ public class CopyConsumer extends Thread {
             }
             if (sb.length() > 0) {
                 try {
-                    if(copyManager == null){
+                    if (copyManager == null) {
                         init();
                     }
-                    System.out.println(copyManager);
-                    System.out.println(num);
-                    System.out.println(sb.toString().substring(0, 20));
+                    System.out.println("copyManager==" + copyManager);
+                    System.out.println("num==" + num);
+                    System.out.println("sb.length==" + sb.length());
                     num = 0;
                     System.out.println(1);
-                    copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN WITH NULL '\\n'", new ByteArrayInputStream(sb.toString().getBytes()));
+                    copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS '" + ttt.getOutputData().getSeparator() + "'", new ByteArrayInputStream(sb.toString().getBytes()));
                     System.out.println(2);
                     baseConn.commit();
                     System.out.println(3);
