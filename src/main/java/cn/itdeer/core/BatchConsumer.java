@@ -179,12 +179,10 @@ public class BatchConsumer extends Thread {
             init();
 
         if (number >= batchSize) {
-
             stmt.executeBatch();
             connection.commit();
             stmt.clearBatch();
             consumer.commitSync();
-            System.out.println("AA:"+number);
             number = 0;
         }
         return number;

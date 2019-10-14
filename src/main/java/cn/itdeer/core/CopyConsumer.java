@@ -117,7 +117,6 @@ public class CopyConsumer extends Thread {
                     consumer.commitAsync();
                     sb.setLength(0);
                 }
-
             } catch (Exception e) {
                 log.error("Parsing kafka json format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
                 log.error("The data that caused the error is:[{}]", sb.toString());
@@ -130,14 +129,11 @@ public class CopyConsumer extends Thread {
      * 数据为CSV格式
      */
     private void csvData() {
-        int num = 0;
         while (true) {
-
             ConsumerRecords<String, String> records = consumer.poll(100);
             for (ConsumerRecord<String, String> record : records) {
                 try {
                     sb.append(record.value() + "\n");
-                    num++;
                 } catch (Exception e) {
                     log.error("Insert mode is [copy], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:", record.value(), e.getStackTrace());
                 }
@@ -147,24 +143,12 @@ public class CopyConsumer extends Thread {
                     if (copyManager == null) {
                         init();
                     }
-                    System.out.println("copyManager==" + copyManager);
-                    System.out.println("num==" + num);
-                    System.out.println("sb.length==" + sb.length());
-                    num = 0;
-                    System.out.println(1);
                     copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS '" + ttt.getOutputData().getSeparator() + "'", new ByteArrayInputStream(sb.toString().getBytes()));
-                    System.out.println(2);
                     baseConn.commit();
-                    System.out.println(3);
-//                    consumer.commitSync();
                     consumer.commitAsync();
-                    System.out.println(4);
                     sb.setLength(0);
-                    System.out.println(5);
-                    log.info("发送成功");
                 } catch (Exception e) {
                     log.error("Parsing kafka csv format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
-//                    log.error("The data that caused the error is:[{}]", sb.toString());
                     sb.setLength(0);
                 }
             }

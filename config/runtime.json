@@ -1,6 +1,6 @@
 {
   "kafka": {
-    "groupIdSuffix": "GROUP_ID_SPM_TMP",
+    "groupIdSuffix": "GROUP_ID_SPM",
     "autoCommitIntervalMs": "1000",
     "maxPollRecords": "100000",
     "fetchMaxBytes": "52428800",
@@ -34,8 +34,8 @@
         },
         "commons": {
           "threads": "1",
-          "type" : "batch",
-          "batchSize" : "200"
+          "type": "batch",
+          "batchSize": "200"
         },
         "mapping": "tagname:text,tagvalue:decimal,isgood:boolean,sendts:timestamp,pits:timestamp"
       }
