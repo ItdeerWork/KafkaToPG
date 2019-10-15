@@ -35,8 +35,7 @@ public class InitConfig {
     static {
         String filePath = System.getProperty("user.dir") + File.separator + "config" + File.separator + configFileName;
         try (
-                FileReader reader = new FileReader(filePath);
-                BufferedReader br = new BufferedReader(reader)
+                BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(filePath), "UTF-8"))
         ) {
             String line;
             while ((line = br.readLine()) != null) {
@@ -48,7 +47,7 @@ public class InitConfig {
             log.info("Initializes connection pool information ......");
             initConnectionList();
         } catch (IOException e) {
-            log.error("Error reading configuration file [{}] error message is as follows:", configFileName, e.getStackTrace());
+            log.error("Error reading configuration file [{}] error message is as follows:[{}]", configFileName, e.getStackTrace());
         }
     }
 
@@ -92,7 +91,15 @@ public class InitConfig {
             connection.prepareStatement(sql).execute();
             log.info("The table structure was created successfully for the table name [{}]", table);
         } catch (SQLException e) {
-            log.info("The failure information for creating the table structure for the table name [{}] is as follows :", table, e.getStackTrace());
+            log.info("The failure information for creating the table structure for the table name [{}] is as follows :[{}]", table, e.getStackTrace());
+        } finally {
+            if (connection != null) {
+                try {
+                    connection.close();
+                } catch (SQLException e) {
+                    log.info("An exception occurred when the connection was closed. The exception information is as follows: [{}]:", e.getStackTrace());
+                }
+            }
         }
     }
 
@@ -104,14 +111,18 @@ public class InitConfig {
      * @return SQL 创建表的SQL
      */
     private static String splitMapping(String mapping, String table) {
-        String sql = "create table if not exists " + table + "(";
+        StringBuffer sb = new StringBuffer();
+        sb.append("create table if not exists ").append(table).append("(");
         String tmp = mapping + ",";
         String[] splitMapping = tmp.split(",");
 
         for (String s : splitMapping) {
             String[] field = s.split(":");
-            sql = sql + field[0] + " " + field[1] + ",";
+            String ss = field[0] + " " + field[1] + ",";
+            sb.append(ss);
         }
+
+        String sql = sb.toString();
         sql = sql.substring(0, sql.length() - 1) + ")";
         return sql;
     }
@@ -129,6 +140,7 @@ public class InitConfig {
                 createTable(druidDataSource.getConnection(), id.getTable(), ds.getTopicToTable().getMapping());
             } catch (SQLException e) {
                 e.printStackTrace();
+                log.info("An exception occurred when creating the table. The exception information is as follows: [{}]:", e.getStackTrace());
             }
             map.put(id.getTable(), druidDataSource);
         }
@@ -171,7 +183,7 @@ public class InitConfig {
             log.info("The connection pool was created successfully for the table name [{}]", table);
             return druidDataSource;
         } catch (Exception e) {
-            log.error("Error creating data connection pool for [{}] Error message is as follows:", table, e.getStackTrace());
+            log.error("Error creating data connection pool for [{}] Error message is as follows:[{}]", table, e.getStackTrace());
         }
         return null;
     }

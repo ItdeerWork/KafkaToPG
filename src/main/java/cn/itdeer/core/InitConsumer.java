@@ -25,17 +25,13 @@ import java.util.Properties;
  * CreateTime : 2019/8/16/9:45
  */
 @Slf4j
-@Data
 public class InitConsumer {
 
     private KafkaConsumer<String, String> consumer;
     private DruidDataSource dds;
     private TopicToTable ttt;
     private Kafka kafka;
-    private String[] fields = null;
-
-    private Connection connection;
-    private Statement stmt;
+    private String[] fields;
 
     /**
      * 构造函数 初始化Consumer的实例
@@ -46,7 +42,7 @@ public class InitConsumer {
      */
     public InitConsumer(Kafka kafka, TopicToTable ttt, String[] fields) {
         this.ttt = ttt;
-        this.fields = fields;
+        this.fields = fields.clone();
         this.kafka = kafka;
         init(ttt.getCommons().getType());
 
@@ -84,11 +80,16 @@ public class InitConsumer {
         try {
             log.info("Start initializing [{}] processing instance of type [{}]", type, type);
 
-            switch (type) {
+            switch (type.toUpperCase()) {
                 case Constants.BATCH_TYPE:
                     new BatchConsumer(consumer, ttt, fields, dds).start();
+                    break;
                 case Constants.COPY_TYPE:
                     new CopyConsumer(consumer, ttt, fields, dds).start();
+                    break;
+                default:
+                    log.error("This processing mode is not supported for the time being, only batch and copy are supported");
+                    break;
             }
         } catch (Exception e) {
             log.error("Error retrieving connection from connection pool or instantiating processing instance. Error message:[{}]", e.getStackTrace());
@@ -115,13 +116,10 @@ public class InitConsumer {
             if (dds != null) {
                 dds.close();
             }
-            if (connection != null) {
-                connection.close();
-            }
             if (kafka != null) {
                 kafka = null;
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             log.error("The closing resource error message is as follows: [{}]", e.getStackTrace());
         }
     }

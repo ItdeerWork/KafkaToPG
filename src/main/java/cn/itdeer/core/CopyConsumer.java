@@ -46,7 +46,7 @@ public class CopyConsumer extends Thread {
     public CopyConsumer(KafkaConsumer<String, String> consumer, TopicToTable ttt, String[] fields, DruidDataSource dds) {
         this.consumer = consumer;
         this.ttt = ttt;
-        this.fields = fields;
+        this.fields = fields.clone();
         this.dds = dds;
         init();
         sb = new StringBuffer(1000);
@@ -78,13 +78,16 @@ public class CopyConsumer extends Thread {
      */
     @Override
     public void run() {
-        switch (ttt.getOutputData().getFormat()) {
+        switch (ttt.getOutputData().getFormat().toUpperCase()) {
             case Constants.JSON:
                 jsonData();
+                break;
             case Constants.CSV:
                 csvData();
+                break;
             default:
                 log.error("The data format you set is not currently supported, only JSON and CSV are supported");
+                break;
         }
     }
 
@@ -104,7 +107,7 @@ public class CopyConsumer extends Thread {
                         }
                         sb.append(jsonObject.get(fields[field_size]).toString() + "\n");
                     } catch (Exception e) {
-                        log.error("Insert mode is [copy], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:", record.value(), e.getStackTrace());
+                        log.error("Insert mode is [copy], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:[{}]", record.value(), e.getStackTrace());
                     }
                 }
 
@@ -112,10 +115,11 @@ public class CopyConsumer extends Thread {
                     if (copyManager == null) {
                         init();
                     }
-                    copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS ','", new ByteArrayInputStream(sb.toString().getBytes()));
+                    copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS ','", new ByteArrayInputStream(sb.toString().getBytes("UTF-8")));
                     baseConn.commit();
                     consumer.commitAsync();
                     sb.setLength(0);
+                    System.out.println("发送成功");
                 }
             } catch (Exception e) {
                 log.error("Parsing kafka json format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
@@ -135,7 +139,7 @@ public class CopyConsumer extends Thread {
                 try {
                     sb.append(record.value() + "\n");
                 } catch (Exception e) {
-                    log.error("Insert mode is [copy], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:", record.value(), e.getStackTrace());
+                    log.error("Insert mode is [copy], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:[{}]", record.value(), e.getStackTrace());
                 }
             }
             if (sb.length() > 0) {
@@ -143,7 +147,7 @@ public class CopyConsumer extends Thread {
                     if (copyManager == null) {
                         init();
                     }
-                    copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS '" + ttt.getOutputData().getSeparator() + "'", new ByteArrayInputStream(sb.toString().getBytes()));
+                    copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS '" + ttt.getOutputData().getSeparator() + "'", new ByteArrayInputStream(sb.toString().getBytes("UTF-8")));
                     baseConn.commit();
                     consumer.commitAsync();
                     sb.setLength(0);

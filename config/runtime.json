@@ -1,6 +1,6 @@
 {
   "kafka": {
-    "groupIdSuffix": "GROUP_ID_SPM",
+    "groupIdSuffix": "GROUP_ID_SPM_TMP",
     "autoCommitIntervalMs": "1000",
     "maxPollRecords": "100000",
     "fetchMaxBytes": "52428800",

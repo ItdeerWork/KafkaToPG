@@ -43,7 +43,7 @@ public class BatchConsumer extends Thread {
     public BatchConsumer(KafkaConsumer<String, String> consumer, TopicToTable ttt, String[] fields, DruidDataSource dds) {
         this.consumer = consumer;
         this.ttt = ttt;
-        this.fields = fields;
+        this.fields = fields.clone();
         this.dds = dds;
         init();
         addShutdownHook();
@@ -71,23 +71,27 @@ public class BatchConsumer extends Thread {
         /**
          * 准备插入SQL的前半部分
          */
-        String sqlPrefix = "INSERT INTO \"" + ttt.getInputData().getTable() + "\"(";
+        StringBuffer sqlPrefix = new StringBuffer();
+        sqlPrefix.append("INSERT INTO \"").append(ttt.getInputData().getTable()).append("\"(");
         for (String filed : fields) {
-            sqlPrefix = sqlPrefix + filed + ",";
+            sqlPrefix.append(filed + ",");
         }
-        sqlPrefix = sqlPrefix.substring(0, sqlPrefix.length() - 1) + ") VALUES";
-
+        String sqlPrefix_s = sqlPrefix.toString();
+        sqlPrefix_s = sqlPrefix_s.substring(0, sqlPrefix_s.length() - 1) + ") VALUES";
         /**
          * 接收数据 组装完整的插入语句
          */
         int batchSize = ttt.getCommons().getBatchSize();
-        switch (ttt.getOutputData().getFormat()) {
+        switch (ttt.getOutputData().getFormat().toUpperCase()) {
             case Constants.JSON:
-                jsonData(connection, stmt, sqlPrefix, batchSize);
+                jsonData(connection, stmt, sqlPrefix_s, batchSize);
+                break;
             case Constants.CSV:
-                csvData(connection, stmt, sqlPrefix, batchSize);
+                csvData(connection, stmt, sqlPrefix_s, batchSize);
+                break;
             default:
                 log.error("The data format you set is not currently supported, only JSON and CSV are supported");
+                break;
         }
     }
 
@@ -121,7 +125,7 @@ public class BatchConsumer extends Thread {
                     }
                     insertSql = sqlPrefix;
                 } catch (Exception e) {
-                    log.error("Insert mode is [batch], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:", record.value(), e.getStackTrace());
+                    log.error("Insert mode is [batch], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:[{}]", record.value(), e.getStackTrace());
                 }
             }
         }
@@ -158,7 +162,7 @@ public class BatchConsumer extends Thread {
                     }
                     insertSql = sqlPrefix;
                 } catch (Exception e) {
-                    log.error("Insert mode is [batch], Kafka data format is [csv], An error occurred while parsing [{}] data. The error information is as follows:", record.value(), e.getStackTrace());
+                    log.error("Insert mode is [batch], Kafka data format is [csv], An error occurred while parsing [{}] data. The error information is as follows:[{}]", record.value(), e.getStackTrace());
                 }
             }
         }
@@ -179,6 +183,7 @@ public class BatchConsumer extends Thread {
             init();
 
         if (number >= batchSize) {
+            System.out.println("AA" + number);
             stmt.executeBatch();
             connection.commit();
             stmt.clearBatch();
