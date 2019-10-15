@@ -118,8 +118,8 @@ public class CopyConsumer extends Thread {
                     copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS ','", new ByteArrayInputStream(sb.toString().getBytes("UTF-8")));
                     baseConn.commit();
                     consumer.commitAsync();
-                    sb.setLength(0);
                     log.info("Use copy to successfully write a batch of JSON format data to Postgresql database, the length is:[{}]",sb.length());
+                    sb.setLength(0);
                 }
             } catch (Exception e) {
                 log.error("Parsing kafka json format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
@@ -150,8 +150,8 @@ public class CopyConsumer extends Thread {
                     copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS '" + ttt.getOutputData().getSeparator() + "'", new ByteArrayInputStream(sb.toString().getBytes("UTF-8")));
                     baseConn.commit();
                     consumer.commitAsync();
-                    sb.setLength(0);
                     log.info("Use copy to successfully write a batch of CSV format data to Postgresql database, the length is:[{}]",sb.length());
+                    sb.setLength(0);
                 } catch (Exception e) {
                     log.error("Parsing kafka csv format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
                     sb.setLength(0);
