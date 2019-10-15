@@ -183,11 +183,11 @@ public class BatchConsumer extends Thread {
             init();
 
         if (number >= batchSize) {
-            System.out.println("AA" + number);
             stmt.executeBatch();
             connection.commit();
             stmt.clearBatch();
             consumer.commitSync();
+            log.info("Use batch to successfully write a batch data to Postgresql database, the length is:[{}]", number);
             number = 0;
         }
         return number;
