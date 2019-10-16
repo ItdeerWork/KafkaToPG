@@ -47,7 +47,7 @@ public class BatchConsumer extends Thread {
         this.fields = fields.clone();
         this.dds = dds;
         init();
-        addShutdownHook();
+//        addShutdownHook();
     }
 
     /**

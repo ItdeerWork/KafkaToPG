@@ -52,7 +52,7 @@ public class CopyConsumer extends Thread {
         this.dds = dds;
         init();
         sb = new StringBuffer();
-        addShutdownHook();
+//        addShutdownHook();
     }
 
     /**
@@ -114,7 +114,7 @@ public class CopyConsumer extends Thread {
                     }
                 }
 
-                if(connection.isClosed()){
+                if (connection.isClosed()) {
                     init();
                 }
 
@@ -133,10 +133,13 @@ public class CopyConsumer extends Thread {
         } catch (Exception e) {
             log.error("Parsing kafka json format data to write data to postgresql error message is as follows:[{}]", e);
             log.error("The data that caused the error is:[{}]", sb.toString());
-            sb.setLength(0);
+            if (sb != null) {
+                sb.setLength(0);
+            }
         } finally {
             try {
                 consumer.commitSync();
+
             } finally {
                 consumer.close();
             }
@@ -158,7 +161,7 @@ public class CopyConsumer extends Thread {
                         log.error("Insert mode is [copy], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:[{}]", record.value(), e.getStackTrace());
                     }
                 }
-                if(connection.isClosed()){
+                if (connection.isClosed()) {
                     init();
                 }
                 if (sb.length() > 0) {
@@ -169,7 +172,9 @@ public class CopyConsumer extends Thread {
                         sb.setLength(0);
                     } catch (Exception e) {
                         log.error("Parsing kafka csv format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
-                        sb.setLength(0);
+                        if (sb != null) {
+                            sb.setLength(0);
+                        }
                     }
                 }
                 consumer.commitAsync();
