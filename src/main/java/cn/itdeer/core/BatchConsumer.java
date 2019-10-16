@@ -1,6 +1,7 @@
 package cn.itdeer.core;
 
 import cn.itdeer.common.Constants;
+import cn.itdeer.common.InitConfig;
 import cn.itdeer.common.TopicToTable;
 import com.alibaba.druid.pool.DruidDataSource;
 import com.alibaba.fastjson.JSON;
@@ -54,6 +55,7 @@ public class BatchConsumer extends Thread {
      */
     private void init() {
         try {
+            dds = InitConfig.getConnectionMap().get(ttt.getInputData().getTable());
             connection = dds.getConnection();
             connection.setAutoCommit(false);
             stmt = connection.createStatement();
@@ -107,10 +109,10 @@ public class BatchConsumer extends Thread {
 
         int number = 0;
         String insertSql = sqlPrefix;
-        while (true) {
-            ConsumerRecords<String, String> records = consumer.poll(100);
-            for (ConsumerRecord<String, String> record : records) {
-                try {
+        try {
+            while (true) {
+                ConsumerRecords<String, String> records = consumer.poll(100);
+                for (ConsumerRecord<String, String> record : records) {
                     JSONObject jsonObject = JSON.parseObject(record.value());
 
                     insertSql = insertSql + " (";
@@ -122,11 +124,18 @@ public class BatchConsumer extends Thread {
                     number++;
                     if (number == batchSize) {
                         number = inputBatch(connection, stmt, batchSize, number);
+                        consumer.commitAsync();
                     }
                     insertSql = sqlPrefix;
-                } catch (Exception e) {
-                    log.error("Insert mode is [batch], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:[{}]", record.value(), e.getStackTrace());
                 }
+            }
+        } catch (Exception e) {
+            log.error("Insert mode is [batch], Kafka data format is [json], An error occurred while parsing data. The error information is as follows:[{}]", e);
+        } finally {
+            try {
+                consumer.commitSync();
+            } finally {
+                consumer.close();
             }
         }
     }
@@ -144,10 +153,11 @@ public class BatchConsumer extends Thread {
         int number = 0;
         String insertSql = sqlPrefix;
         String separator = ttt.getOutputData().getSeparator() == null ? Constants.COMMA : ttt.getOutputData().getSeparator();
-        while (true) {
-            ConsumerRecords<String, String> records = consumer.poll(100);
-            for (ConsumerRecord<String, String> record : records) {
-                try {
+
+        try {
+            while (true) {
+                ConsumerRecords<String, String> records = consumer.poll(100);
+                for (ConsumerRecord<String, String> record : records) {
                     String[] values = record.value().split(separator);
                     insertSql = insertSql + " (";
 
@@ -159,11 +169,18 @@ public class BatchConsumer extends Thread {
                     number++;
                     if (number == batchSize) {
                         number = inputBatch(connection, stmt, batchSize, number);
+                        consumer.commitAsync();
                     }
                     insertSql = sqlPrefix;
-                } catch (Exception e) {
-                    log.error("Insert mode is [batch], Kafka data format is [csv], An error occurred while parsing [{}] data. The error information is as follows:[{}]", record.value(), e.getStackTrace());
                 }
+            }
+        } catch (Exception e) {
+            log.error("Insert mode is [batch], Kafka data format is [csv], An error occurred while parsing data. The error information is as follows:[{}]", e);
+        } finally {
+            try {
+                consumer.commitSync();
+            } finally {
+                consumer.close();
             }
         }
     }
@@ -179,17 +196,15 @@ public class BatchConsumer extends Thread {
      * @throws SQLException
      */
     private int inputBatch(Connection connection, Statement stmt, int batchSize, int number) throws SQLException {
-        if (stmt == null || connection == null)
+        if (stmt == null || connection == null || connection.isClosed())
             init();
 
-        if (number >= batchSize) {
-            stmt.executeBatch();
-            connection.commit();
-            stmt.clearBatch();
-            consumer.commitSync();
-            log.info("Use batch to successfully write a batch data to Postgresql database, the length is:[{}]", number);
-            number = 0;
-        }
+        stmt.executeBatch();
+        connection.commit();
+        stmt.clearBatch();
+        log.info("Use batch to successfully write a batch data to Postgresql database, the length is:[{}]", number);
+        number = 0;
+
         return number;
     }
 

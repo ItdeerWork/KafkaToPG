@@ -160,7 +160,7 @@ public class InitConfig {
         properties.setProperty("type", "com.alibaba.druid.pool.DruidDataSource");
         properties.setProperty("driverClassName", "org.postgresql.Driver");
 
-        properties.setProperty("url", "jdbc:postgresql://" + cb.getPostgresql().getHost() + ":" + cb.getPostgresql().getPort() + "/" + database + "?characterEncoding=utf-8&useServerPrepStmts=true&rewriteBatchedStatements=true");
+        properties.setProperty("url", "jdbc:postgresql://" + cb.getPostgresql().getHost() + ":" + cb.getPostgresql().getPort() + "/" + database + "?characterEncoding=utf-8&useServerPrepStmts=true&rewriteBatchedStatements=true&connectTimeout=600&loginTimeout=600&socketTimeout=600&tcpKeepAlive=true");
         properties.setProperty("username", cb.getPostgresql().getUser());
         properties.setProperty("password", cb.getPostgresql().getPassword());
         properties.setProperty("filters", "stat,wall,log4j");
@@ -171,7 +171,7 @@ public class InitConfig {
         properties.setProperty("timeBetweenEvictionRunsMillis", "600000");
         properties.setProperty("minEvictableIdleTimeMillis", "300000");
         properties.setProperty("testWhileIdle", "true");
-        properties.setProperty("testOnBorrow", "false");
+        properties.setProperty("testOnBorrow", "true");
         properties.setProperty("testOnReturn", "false");
         properties.setProperty("poolPreparedStatements", "true");
         properties.setProperty("maxOpenPreparedStatements", "20");

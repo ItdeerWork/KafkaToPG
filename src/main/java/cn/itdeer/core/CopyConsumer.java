@@ -1,6 +1,7 @@
 package cn.itdeer.core;
 
 import cn.itdeer.common.Constants;
+import cn.itdeer.common.InitConfig;
 import cn.itdeer.common.TopicToTable;
 import com.alibaba.druid.pool.DruidDataSource;
 import com.alibaba.fastjson.JSON;
@@ -34,6 +35,7 @@ public class CopyConsumer extends Thread {
     private CopyManager copyManager = null;
     private StringBuffer sb;
     private DruidDataSource dds;
+    private Connection connection;
 
     /**
      * 构造函数 父类进行实例化，这里直接可以使用
@@ -49,7 +51,7 @@ public class CopyConsumer extends Thread {
         this.fields = fields.clone();
         this.dds = dds;
         init();
-        sb = new StringBuffer(1000);
+        sb = new StringBuffer();
         addShutdownHook();
     }
 
@@ -59,9 +61,9 @@ public class CopyConsumer extends Thread {
      * @return CopyManager 通道管理实例
      */
     private CopyManager init() {
-        if (copyManager == null) {
-            Connection connection;
+        if (copyManager == null || dds.isClosed()) {
             try {
+                dds = InitConfig.getConnectionMap().get(ttt.getInputData().getTable());
                 connection = dds.getConnection();
                 connection.setAutoCommit(false);
                 baseConn = (BaseConnection) connection.getMetaData().getConnection();
@@ -96,8 +98,9 @@ public class CopyConsumer extends Thread {
      */
     private void jsonData() {
         int field_size = fields.length - 1;
-        while (true) {
-            try {
+
+        try {
+            while (true) {
                 ConsumerRecords<String, String> records = consumer.poll(100);
                 for (ConsumerRecord<String, String> record : records) {
                     try {
@@ -111,20 +114,31 @@ public class CopyConsumer extends Thread {
                     }
                 }
 
+                if(connection.isClosed()){
+                    init();
+                }
+
                 if (sb.length() > 0) {
                     if (copyManager == null) {
                         init();
                     }
                     copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS ','", new ByteArrayInputStream(sb.toString().getBytes("UTF-8")));
                     baseConn.commit();
-                    consumer.commitAsync();
-                    log.info("Use copy to successfully write a batch of JSON format data to Postgresql database, the length is:[{}]",sb.length());
+                    baseConn.purgeTimerTasks();
+                    log.info("Use copy to successfully write a batch of JSON format data to Postgresql database, the length is:[{}]", sb.length());
                     sb.setLength(0);
                 }
-            } catch (Exception e) {
-                log.error("Parsing kafka json format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
-                log.error("The data that caused the error is:[{}]", sb.toString());
-                sb.setLength(0);
+                consumer.commitAsync();
+            }
+        } catch (Exception e) {
+            log.error("Parsing kafka json format data to write data to postgresql error message is as follows:[{}]", e);
+            log.error("The data that caused the error is:[{}]", sb.toString());
+            sb.setLength(0);
+        } finally {
+            try {
+                consumer.commitSync();
+            } finally {
+                consumer.close();
             }
         }
     }
@@ -132,30 +146,41 @@ public class CopyConsumer extends Thread {
     /**
      * 数据为CSV格式
      */
+
     private void csvData() {
-        while (true) {
-            ConsumerRecords<String, String> records = consumer.poll(100);
-            for (ConsumerRecord<String, String> record : records) {
-                try {
-                    sb.append(record.value() + "\n");
-                } catch (Exception e) {
-                    log.error("Insert mode is [copy], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:[{}]", record.value(), e.getStackTrace());
-                }
-            }
-            if (sb.length() > 0) {
-                try {
-                    if (copyManager == null) {
-                        init();
+        try {
+            while (true) {
+                ConsumerRecords<String, String> records = consumer.poll(100);
+                for (ConsumerRecord<String, String> record : records) {
+                    try {
+                        sb.append(record.value() + "\n");
+                    } catch (Exception e) {
+                        log.error("Insert mode is [copy], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:[{}]", record.value(), e.getStackTrace());
                     }
-                    copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS '" + ttt.getOutputData().getSeparator() + "'", new ByteArrayInputStream(sb.toString().getBytes("UTF-8")));
-                    baseConn.commit();
-                    consumer.commitAsync();
-                    log.info("Use copy to successfully write a batch of CSV format data to Postgresql database, the length is:[{}]",sb.length());
-                    sb.setLength(0);
-                } catch (Exception e) {
-                    log.error("Parsing kafka csv format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
-                    sb.setLength(0);
                 }
+                if(connection.isClosed()){
+                    init();
+                }
+                if (sb.length() > 0) {
+                    try {
+                        copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS '" + ttt.getOutputData().getSeparator() + "'", new ByteArrayInputStream(sb.toString().getBytes("UTF-8")));
+                        baseConn.commit();
+                        log.info("Use copy to successfully write a batch of CSV format data to Postgresql database, the length is:[{}]", sb.length());
+                        sb.setLength(0);
+                    } catch (Exception e) {
+                        log.error("Parsing kafka csv format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
+                        sb.setLength(0);
+                    }
+                }
+                consumer.commitAsync();
+            }
+        } catch (Exception e) {
+            log.error("Error in performing consumption CSV data, error message :[{}]", e);
+        } finally {
+            try {
+                consumer.commitSync();
+            } finally {
+                consumer.close();
             }
         }
     }

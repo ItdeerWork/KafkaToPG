@@ -34,8 +34,7 @@
         },
         "commons": {
           "threads": "1",
-          "type": "batch",
-          "batchSize": "200"
+          "type": "copy"
         },
         "mapping": "tagname:text,tagvalue:decimal,isgood:boolean,sendts:timestamp,pits:timestamp"
       }
