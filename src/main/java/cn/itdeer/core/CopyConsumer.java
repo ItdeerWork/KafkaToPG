@@ -68,6 +68,11 @@ public class CopyConsumer extends Thread {
                 connection.setAutoCommit(false);
                 baseConn = (BaseConnection) connection.getMetaData().getConnection();
                 copyManager = new CopyManager(baseConn);
+                log.info("DDS 是否是Closeed: " + dds.isClosed());
+                log.info("DDS 活着的: " + dds.getActiveCount());
+                log.info("connection 是否是Closeed: " + connection.isClosed());
+                log.info("baseConn 是否是Closeed: " + baseConn.isClosed());
+                log.info("copyManager 是: " + copyManager.toString());
             } catch (Exception e) {
                 log.error("Error retrieving connection from connection pool or instantiating processing instance. Error message:[{}]", e.getStackTrace());
             }
@@ -136,6 +141,7 @@ public class CopyConsumer extends Thread {
             if (sb != null) {
                 sb.setLength(0);
             }
+            init();
         } finally {
             try {
                 consumer.commitSync();
@@ -175,6 +181,7 @@ public class CopyConsumer extends Thread {
                         if (sb != null) {
                             sb.setLength(0);
                         }
+                        init();
                     }
                 }
                 consumer.commitAsync();
