@@ -141,6 +141,7 @@ public class CopyConsumer extends Thread {
             if (sb != null) {
                 sb.setLength(0);
             }
+            close();
             init();
         } finally {
             try {
@@ -181,6 +182,7 @@ public class CopyConsumer extends Thread {
                         if (sb != null) {
                             sb.setLength(0);
                         }
+                        close();
                         init();
                     }
                 }
