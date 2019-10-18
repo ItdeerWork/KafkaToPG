@@ -51,8 +51,6 @@ public class CopyConsumer extends Thread {
         this.fields = fields.clone();
         this.dds = dds;
         init();
-
-//        addShutdownHook();
     }
 
     /**
@@ -61,6 +59,7 @@ public class CopyConsumer extends Thread {
      * @return CopyManager 通道管理实例
      */
     private CopyManager init() {
+        log.info("初始化连接资源......活动的连接个数：" + dds.getActiveCount());
         if (copyManager == null || dds.isClosed()) {
             try {
                 sb = new StringBuffer();
@@ -69,11 +68,6 @@ public class CopyConsumer extends Thread {
                 connection.setAutoCommit(false);
                 baseConn = (BaseConnection) connection.getMetaData().getConnection();
                 copyManager = new CopyManager(baseConn);
-                log.info("DDS 是否是Closeed: " + dds.isClosed());
-                log.info("DDS 活着的: " + dds.getActiveCount());
-                log.info("connection 是否是Closeed: " + connection.isClosed());
-                log.info("baseConn 是否是Closeed: " + baseConn.isClosed());
-                log.info("copyManager 是: " + copyManager.toString());
             } catch (Exception e) {
                 log.error("Error retrieving connection from connection pool or instantiating processing instance. Error message:[{}]", e.getStackTrace());
             }
@@ -104,7 +98,6 @@ public class CopyConsumer extends Thread {
      */
     private void jsonData() {
         int field_size = fields.length - 1;
-
         try {
             while (true) {
                 ConsumerRecords<String, String> records = consumer.poll(100);
@@ -120,12 +113,8 @@ public class CopyConsumer extends Thread {
                     }
                 }
 
-                if (connection.isClosed()) {
-                    init();
-                }
-
                 if (sb.length() > 0) {
-                    if (copyManager == null) {
+                    if (connection.isClosed()) {
                         init();
                     }
                     copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS ','", new ByteArrayInputStream(sb.toString().getBytes("UTF-8")));
@@ -139,15 +128,12 @@ public class CopyConsumer extends Thread {
         } catch (Exception e) {
             log.error("Parsing kafka json format data to write data to postgresql error message is as follows:[{}]", e);
             log.error("The data that caused the error is:[{}]", sb.toString());
-            if (sb != null) {
-                sb.setLength(0);
-            }
             close();
             init();
         } finally {
             try {
                 consumer.commitSync();
-
+                closeAll();
             } finally {
                 consumer.close();
             }
@@ -157,7 +143,6 @@ public class CopyConsumer extends Thread {
     /**
      * 数据为CSV格式
      */
-
     private void csvData() {
         try {
             while (true) {
@@ -169,20 +154,18 @@ public class CopyConsumer extends Thread {
                         log.error("Insert mode is [copy], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:[{}]", record.value(), e.getStackTrace());
                     }
                 }
-                if (connection.isClosed()) {
-                    init();
-                }
+
                 if (sb.length() > 0) {
                     try {
+                        if (connection.isClosed()) {
+                            init();
+                        }
                         copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS '" + ttt.getOutputData().getSeparator() + "'", new ByteArrayInputStream(sb.toString().getBytes("UTF-8")));
                         baseConn.commit();
                         log.info("Use copy to successfully write a batch of CSV format data to Postgresql database, the length is:[{}]", sb.length());
                         sb.setLength(0);
                     } catch (Exception e) {
                         log.error("Parsing kafka csv format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
-                        if (sb != null) {
-                            sb.setLength(0);
-                        }
                         close();
                         init();
                     }
@@ -194,6 +177,7 @@ public class CopyConsumer extends Thread {
         } finally {
             try {
                 consumer.commitSync();
+                closeAll();
             } finally {
                 consumer.close();
             }
@@ -201,18 +185,7 @@ public class CopyConsumer extends Thread {
     }
 
     /**
-     * 注册一个停止运行的资源清理任务(钩子程序)
-     */
-    private void addShutdownHook() {
-        Runtime.getRuntime().addShutdownHook(new Thread() {
-            public void run() {
-                close();
-            }
-        });
-    }
-
-    /**
-     * 关闭资源
+     * 关闭部分资源
      */
     private void close() {
         try {
@@ -225,17 +198,24 @@ public class CopyConsumer extends Thread {
             if (baseConn != null) {
                 baseConn.close();
             }
-//            if (fields != null) {
-//                fields = null;
-//            }
-//            if (ttt != null) {
-//                ttt = null;
-//            }
-//            if (consumer != null) {
-//                consumer.close();
-//            }
         } catch (SQLException e) {
             log.error("The closing resource error message is as follows: [{}]", e.getStackTrace());
+        }
+    }
+
+    /**
+     * 关闭所有资源
+     */
+    private void closeAll() {
+        close();
+        if (fields != null) {
+            fields = null;
+        }
+        if (ttt != null) {
+            ttt = null;
+        }
+        if (consumer != null) {
+            consumer.close();
         }
     }
 }

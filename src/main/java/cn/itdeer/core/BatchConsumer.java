@@ -47,13 +47,13 @@ public class BatchConsumer extends Thread {
         this.fields = fields.clone();
         this.dds = dds;
         init();
-//        addShutdownHook();
     }
 
     /**
      * 初始化连接信息
      */
     private void init() {
+        log.info("初始化连接资源......活动的连接个数：" + dds.getActiveCount());
         try {
             dds = InitConfig.getConnectionMap().get(ttt.getInputData().getTable());
             connection = dds.getConnection();
@@ -123,7 +123,7 @@ public class BatchConsumer extends Thread {
                     stmt.addBatch(insertSql);
                     number++;
                     if (number == batchSize) {
-                        number = inputBatch(connection, stmt, batchSize, number);
+                        number = inputBatch(connection, stmt, number);
                         consumer.commitAsync();
                     }
                     insertSql = sqlPrefix;
@@ -134,6 +134,7 @@ public class BatchConsumer extends Thread {
         } finally {
             try {
                 consumer.commitSync();
+                closeAll();
             } finally {
                 consumer.close();
             }
@@ -168,7 +169,7 @@ public class BatchConsumer extends Thread {
                     stmt.addBatch(insertSql);
                     number++;
                     if (number == batchSize) {
-                        number = inputBatch(connection, stmt, batchSize, number);
+                        number = inputBatch(connection, stmt, number);
                         consumer.commitAsync();
                     }
                     insertSql = sqlPrefix;
@@ -179,6 +180,7 @@ public class BatchConsumer extends Thread {
         } finally {
             try {
                 consumer.commitSync();
+                closeAll();
             } finally {
                 consumer.close();
             }
@@ -190,33 +192,24 @@ public class BatchConsumer extends Thread {
      *
      * @param connection 数据库连接
      * @param stmt       Statement对象
-     * @param batchSize  批处理大小
      * @param number     当前处理条数
      * @return
      * @throws SQLException
      */
-    private int inputBatch(Connection connection, Statement stmt, int batchSize, int number) throws SQLException {
-        if (stmt == null || connection == null || connection.isClosed())
+    private int inputBatch(Connection connection, Statement stmt, int number) {
+        try {
+            if (stmt == null || connection == null || connection.isClosed())
+                init();
+            stmt.executeBatch();
+            connection.commit();
+            stmt.clearBatch();
+            log.info("Use batch to successfully write a batch data to Postgresql database, the length is:[{}]", number);
+            number = 0;
+        } catch (SQLException e) {
+            close();
             init();
-
-        stmt.executeBatch();
-        connection.commit();
-        stmt.clearBatch();
-        log.info("Use batch to successfully write a batch data to Postgresql database, the length is:[{}]", number);
-        number = 0;
-
+        }
         return number;
-    }
-
-    /**
-     * 注册一个停止运行的资源清理任务(钩子程序)
-     */
-    private void addShutdownHook() {
-        Runtime.getRuntime().addShutdownHook(new Thread() {
-            public void run() {
-                close();
-            }
-        });
     }
 
     /**
@@ -230,17 +223,24 @@ public class BatchConsumer extends Thread {
             if (connection != null) {
                 connection.close();
             }
-            if (fields != null) {
-                fields = null;
-            }
-            if (ttt != null) {
-                ttt = null;
-            }
-            if (consumer != null) {
-                consumer.close();
-            }
         } catch (SQLException e) {
             log.error("The closing resource error message is as follows: [{}]", e.getStackTrace());
+        }
+    }
+
+    /**
+     * 关闭资源
+     */
+    private void closeAll() {
+        close();
+        if (fields != null) {
+            fields = null;
+        }
+        if (ttt != null) {
+            ttt = null;
+        }
+        if (consumer != null) {
+            consumer.close();
         }
     }
 }
