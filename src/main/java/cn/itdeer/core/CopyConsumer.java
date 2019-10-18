@@ -51,7 +51,7 @@ public class CopyConsumer extends Thread {
         this.fields = fields.clone();
         this.dds = dds;
         init();
-        sb = new StringBuffer();
+
 //        addShutdownHook();
     }
 
@@ -63,6 +63,7 @@ public class CopyConsumer extends Thread {
     private CopyManager init() {
         if (copyManager == null || dds.isClosed()) {
             try {
+                sb = new StringBuffer();
                 dds = InitConfig.getConnectionMap().get(ttt.getInputData().getTable());
                 connection = dds.getConnection();
                 connection.setAutoCommit(false);
@@ -224,15 +225,15 @@ public class CopyConsumer extends Thread {
             if (baseConn != null) {
                 baseConn.close();
             }
-            if (fields != null) {
-                fields = null;
-            }
-            if (ttt != null) {
-                ttt = null;
-            }
-            if (consumer != null) {
-                consumer.close();
-            }
+//            if (fields != null) {
+//                fields = null;
+//            }
+//            if (ttt != null) {
+//                ttt = null;
+//            }
+//            if (consumer != null) {
+//                consumer.close();
+//            }
         } catch (SQLException e) {
             log.error("The closing resource error message is as follows: [{}]", e.getStackTrace());
         }
