@@ -223,6 +223,9 @@ public class BatchConsumer extends Thread {
             if (connection != null) {
                 connection.close();
             }
+            if(dds != null){
+                dds.discardConnection(connection);
+            }
         } catch (SQLException e) {
             log.error("The closing resource error message is as follows: [{}]", e.getStackTrace());
         }

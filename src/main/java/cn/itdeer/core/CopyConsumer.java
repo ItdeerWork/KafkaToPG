@@ -198,6 +198,9 @@ public class CopyConsumer extends Thread {
             if (baseConn != null) {
                 baseConn.close();
             }
+            if(dds != null){
+                dds.discardConnection(connection);
+            }
         } catch (SQLException e) {
             log.error("The closing resource error message is as follows: [{}]", e.getStackTrace());
         }
