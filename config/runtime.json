@@ -14,28 +14,25 @@
     "valueDeserializerClass": "org.apache.kafka.common.serialization.StringDeserializer"
   },
   "postgresql": {
-    "user": "tsdb",
-    "password": "tsdb!@#$",
+    "user": "demo",
+    "password": "12345678",
     "port": "5432",
-    "host": "172.24.4.55"
+    "host": "192.168.1.100"
   },
   "datasource": [
     {
       "topicToTable": {
         "outputData": {
-          "bootstrapServers": "172.24.4.35:6667,172.24.4.36:6667,172.24.4.37:6667",
-          "topicName": "spm",
-          "format": "csv",
-          "separator": ","
+          "bootstrapServers": "192.168.1.100:9092",
+          "topicName": "fengtai"
         },
         "inputData": {
-          "database": "spmdb",
-          "table": "spm"
+          "database": "demo",
+          "table": "fengtai"
         },
-        "commons": {
-          "threads": "1",
-          "type": "copy"
-        },
+        "frequency": "30",
+        "duration": "1",
+        "threads": "1",
         "mapping": "tagname:text,tagvalue:decimal,isgood:boolean,sendts:timestamp,pits:timestamp"
       }
     }

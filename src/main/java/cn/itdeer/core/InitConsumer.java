@@ -1,19 +1,16 @@
 package cn.itdeer.core;
 
-import cn.itdeer.common.Constants;
 import cn.itdeer.common.InitConfig;
 import cn.itdeer.common.Kafka;
 import cn.itdeer.common.TopicToTable;
 import com.alibaba.druid.pool.DruidDataSource;
-import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.PartitionInfo;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -29,32 +26,14 @@ public class InitConsumer {
 
     private KafkaConsumer<String, String> consumer;
     private DruidDataSource dds;
-    private TopicToTable ttt;
-    private Kafka kafka;
-    private String[] fields;
 
     /**
      * 构造函数 初始化Consumer的实例
      *
-     * @param kafka  Kafka消费之的基础信息
-     * @param ttt    从Kafka到表的配置信息
-     * @param fields 数据字段
+     * @param kafka Kafka消费之的基础信息
+     * @param ttt   从Kafka到表的配置信息
      */
-    public InitConsumer(Kafka kafka, TopicToTable ttt, String[] fields) {
-        this.ttt = ttt;
-        this.fields = fields.clone();
-        this.kafka = kafka;
-        init(ttt.getCommons().getType());
-
-        addShutdownHook();
-    }
-
-    /**
-     * 初始化连接资源及相应的处理实例
-     *
-     * @param type 设置处理类型
-     */
-    public void init(String type) {
+    public InitConsumer(Kafka kafka, TopicToTable ttt) {
 
         Properties properties = new Properties();
         properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, ttt.getOutputData().getBootstrapServers());
@@ -78,49 +57,9 @@ public class InitConsumer {
         dds = map.get(ttt.getInputData().getTable());
 
         try {
-            log.info("Start initializing [{}] processing instance of type [{}]", type, type);
-
-            switch (type.toUpperCase()) {
-                case Constants.BATCH_TYPE:
-                    new BatchConsumer(consumer, ttt, fields, dds).start();
-                    break;
-                case Constants.COPY_TYPE:
-                    new CopyConsumer(consumer, ttt, fields, dds).start();
-                    break;
-                default:
-                    log.error("This processing mode is not supported for the time being, only batch and copy are supported");
-                    break;
-            }
+            new CopyConsumer(consumer, ttt, dds).start();
         } catch (Exception e) {
             log.error("Error retrieving connection from connection pool or instantiating processing instance. Error message:[{}]", e.getStackTrace());
-        }
-    }
-
-    /**
-     * 注册一个停止运行的资源清理任务(钩子程序)
-     */
-    private void addShutdownHook() {
-        Runtime.getRuntime().addShutdownHook(new Thread() {
-            public void run() {
-                close();
-            }
-        });
-    }
-
-
-    /**
-     * 关闭资源
-     */
-    private void close() {
-        try {
-            if (dds != null) {
-                dds.close();
-            }
-            if (kafka != null) {
-                kafka = null;
-            }
-        } catch (Exception e) {
-            log.error("The closing resource error message is as follows: [{}]", e.getStackTrace());
         }
     }
 }

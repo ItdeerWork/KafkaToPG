@@ -14,6 +14,4 @@ import lombok.Data;
 public class OutputData {
     private String bootstrapServers;
     private String topicName;
-    private String format;
-    private String separator;
 }

@@ -1,6 +1,5 @@
 package cn.itdeer.core;
 
-import cn.itdeer.common.Constants;
 import cn.itdeer.common.InitConfig;
 import cn.itdeer.common.TopicToTable;
 import com.alibaba.druid.pool.DruidDataSource;
@@ -16,6 +15,11 @@ import org.postgresql.core.BaseConnection;
 import java.io.ByteArrayInputStream;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Description : Copy类型写入
@@ -27,9 +31,11 @@ import java.sql.SQLException;
 @Slf4j
 public class CopyConsumer extends Thread {
 
+    public static final String DATA_FORMAT = "yyyy-MM-dd HH:mm:ss";
+    public static final SimpleDateFormat format = new SimpleDateFormat(DATA_FORMAT);
+
     private KafkaConsumer<String, String> consumer;
     private TopicToTable ttt;
-    private String[] fields = null;
 
     private BaseConnection baseConn;
     private CopyManager copyManager = null;
@@ -37,19 +43,25 @@ public class CopyConsumer extends Thread {
     private DruidDataSource dds;
     private Connection connection;
 
+    private Map<String, String> map;
+
+    private String deleteSql;
+    private Statement statement;
+
     /**
      * 构造函数 父类进行实例化，这里直接可以使用
      *
      * @param consumer 消费者实例
      * @param ttt      数据流向配置实例
-     * @param fields   字段列表实例
      * @param dds      连接池信息
      */
-    public CopyConsumer(KafkaConsumer<String, String> consumer, TopicToTable ttt, String[] fields, DruidDataSource dds) {
+    public CopyConsumer(KafkaConsumer<String, String> consumer, TopicToTable ttt, DruidDataSource dds) {
         this.consumer = consumer;
         this.ttt = ttt;
-        this.fields = fields.clone();
         this.dds = dds;
+        map = new HashMap<>(500);
+        deleteSql = "delete from " + ttt.getInputData().getTable() + " where sendts < ";
+
         init();
     }
 
@@ -59,7 +71,6 @@ public class CopyConsumer extends Thread {
      * @return CopyManager 通道管理实例
      */
     private CopyManager init() {
-        log.info("初始化连接资源......活动的连接个数：" + dds.getActiveCount());
         if (copyManager == null || dds.isClosed()) {
             try {
                 sb = new StringBuffer();
@@ -68,6 +79,8 @@ public class CopyConsumer extends Thread {
                 connection.setAutoCommit(false);
                 baseConn = (BaseConnection) connection.getMetaData().getConnection();
                 copyManager = new CopyManager(baseConn);
+
+                statement = connection.createStatement();
             } catch (Exception e) {
                 log.error("Error retrieving connection from connection pool or instantiating processing instance. Error message:[{}]", e.getStackTrace());
             }
@@ -80,100 +93,66 @@ public class CopyConsumer extends Thread {
      */
     @Override
     public void run() {
-        switch (ttt.getOutputData().getFormat().toUpperCase()) {
-            case Constants.JSON:
-                jsonData();
-                break;
-            case Constants.CSV:
-                csvData();
-                break;
-            default:
-                log.error("The data format you set is not currently supported, only JSON and CSV are supported");
-                break;
-        }
-    }
+        long endTime = System.currentTimeMillis() + ttt.getFrequency() * 1000;
+        long durationEndTime = System.currentTimeMillis() - ttt.getDuration() * 3600000;
 
-    /**
-     * 数据为JSON格式
-     */
-    private void jsonData() {
-        int field_size = fields.length - 1;
         try {
             while (true) {
                 ConsumerRecords<String, String> records = consumer.poll(100);
+
+                long nowTime = System.currentTimeMillis();
+
                 for (ConsumerRecord<String, String> record : records) {
+                    JSONObject data;
                     try {
-                        JSONObject jsonObject = JSON.parseObject(record.value());
-                        for (int i = 0; i < field_size; i++) {
-                            sb.append(jsonObject.get(fields[i]).toString() + ",");
+                        data = JSON.parseObject(record.value());
+
+                        boolean isGood = data.getBoolean("isGood");
+                        if (!isGood) {
+                            continue;
                         }
-                        sb.append(jsonObject.get(fields[field_size]).toString() + "\n");
+
+                        String tagName = data.getString("tagName");
+                        Object tagValue = data.get("tagValue");
+                        Object sendTS = data.get("sendTS");
+                        Object piTS = data.get("piTS");
+                        String message = tagValue + "," + isGood + "," + sendTS + "," + piTS;
+
+                        map.put(tagName, message);
                     } catch (Exception e) {
                         log.error("Insert mode is [copy], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:[{}]", record.value(), e.getStackTrace());
                     }
                 }
 
-                if (sb.length() > 0) {
-                    if (connection.isClosed()) {
+                if (nowTime >= endTime) {
+                    if (connection.isClosed())
                         init();
+                    for (String key : map.keySet()) {
+                        sb.append(key + ",").append(map.get(key) + "\n");
                     }
+
                     copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS ','", new ByteArrayInputStream(sb.toString().getBytes("UTF-8")));
+                    String deleteTime = format.format(new Date(durationEndTime));
+                    String sql = deleteSql;
+                    sql = sql + "'" + deleteTime + "'";
+                    statement.execute(sql);
+
                     baseConn.commit();
                     baseConn.purgeTimerTasks();
-                    log.info("Use copy to successfully write a batch of JSON format data to Postgresql database, the length is:[{}]", sb.length());
+
+                    log.info("Use copy to successfully write a batch of JSON format data to TimeScaleDB database, the length is:[{}]", map.size());
+                    log.info("delete a batch data of {} before", format.format(new Date(durationEndTime)));
+
                     sb.setLength(0);
+                    endTime = System.currentTimeMillis() + ttt.getFrequency() * 1000;
+                    durationEndTime = System.currentTimeMillis() - ttt.getDuration() * 3600000;
                 }
                 consumer.commitAsync();
             }
         } catch (Exception e) {
             log.error("Parsing kafka json format data to write data to postgresql error message is as follows:[{}]", e);
-            log.error("The data that caused the error is:[{}]", sb.toString());
             close();
             init();
-        } finally {
-            try {
-                consumer.commitSync();
-                closeAll();
-            } finally {
-                consumer.close();
-            }
-        }
-    }
-
-    /**
-     * 数据为CSV格式
-     */
-    private void csvData() {
-        try {
-            while (true) {
-                ConsumerRecords<String, String> records = consumer.poll(100);
-                for (ConsumerRecord<String, String> record : records) {
-                    try {
-                        sb.append(record.value() + "\n");
-                    } catch (Exception e) {
-                        log.error("Insert mode is [copy], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:[{}]", record.value(), e.getStackTrace());
-                    }
-                }
-
-                if (sb.length() > 0) {
-                    try {
-                        if (connection.isClosed()) {
-                            init();
-                        }
-                        copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS '" + ttt.getOutputData().getSeparator() + "'", new ByteArrayInputStream(sb.toString().getBytes("UTF-8")));
-                        baseConn.commit();
-                        log.info("Use copy to successfully write a batch of CSV format data to Postgresql database, the length is:[{}]", sb.length());
-                        sb.setLength(0);
-                    } catch (Exception e) {
-                        log.error("Parsing kafka csv format data to write data to postgresql error message is as follows:[{}]", e.getStackTrace());
-                        close();
-                        init();
-                    }
-                }
-                consumer.commitAsync();
-            }
-        } catch (Exception e) {
-            log.error("Error in performing consumption CSV data, error message :[{}]", e);
         } finally {
             try {
                 consumer.commitSync();
@@ -198,7 +177,7 @@ public class CopyConsumer extends Thread {
             if (baseConn != null) {
                 baseConn.close();
             }
-            if(dds != null){
+            if (dds != null) {
                 dds.discardConnection(connection);
             }
         } catch (SQLException e) {
@@ -211,9 +190,6 @@ public class CopyConsumer extends Thread {
      */
     private void closeAll() {
         close();
-        if (fields != null) {
-            fields = null;
-        }
         if (ttt != null) {
             ttt = null;
         }

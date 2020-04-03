@@ -14,6 +14,8 @@ import lombok.Data;
 public class TopicToTable {
     private OutputData outputData;
     private InputData inputData;
-    private Commons commons;
+    private Integer frequency;
+    private Integer duration;
+    private Integer threads;
     private String mapping;
 }
