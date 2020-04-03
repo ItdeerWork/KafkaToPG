@@ -21,28 +21,13 @@ java -jar KafkaToPG-1.0.0.jar
 nohup java -jar KafkaToPG-1.0.0.jar &
 ```
 
-### 说明
-
-```
-
-1. PG库需要提前创建，PG表可以不用提前创建，程序会自动创建，也可以提前创建，不会覆盖掉。
-
-2 当Kafka数据格式为CSV是需要“outputData”配置中 多配置一个 "separator" : ","分隔符的配置项 分隔符是根据数据进行更改
-
-3. 目前只能支持Kafka主题数据为 CSV和JSON 两种格式
-
-4. 插入PostGRESQL的方式支持两种方式,batch和copy这两种方式，
-    batch方式的插入速率相对较低，当需要实时同步的数据量较小的时候建议使用，
-    当实时的数据量较大时建议使用copy方式
-```
-
 ### 应用程序整体的配置说明
 
 ```
 {
-  "kafka": {    //kafka的基础配置信息
-    "groupIdSuffix": "GROUP_ID",     //消费组的后缀，完整的组别名称为[表名_groupIdSuffix]
-    "autoCommitIntervalMs": "1000",     //
+  "kafka": {                            //kafka的基础配置信息
+    "groupIdSuffix": "GROUP_ID",        //消费组的后缀，完整的组别名称为[表名_groupIdSuffix]
+    "autoCommitIntervalMs": "1000",     
     "maxPollRecords": "20000",
     "fetchMaxBytes": "10485760",
     "fetchMaxWaitMs": "1000",
@@ -50,53 +35,36 @@ nohup java -jar KafkaToPG-1.0.0.jar &
     "heartbeatIntervalMs": "1000",
     "maxPollIntervalMs": "60000",
     "autoOffsetReset": "earliest",      //Offset消费的位置
-    "enableAutoCommit": "true",     //是否自动提交Offset
-    "keyDeserializerClass": "org.apache.kafka.common.serialization.StringDeserializer",     //Key的
+    "enableAutoCommit": "true",         //是否自动提交Offset
+    "keyDeserializerClass": "org.apache.kafka.common.serialization.StringDeserializer",               //Key的
     "valueDeserializerClass": "org.apache.kafka.common.serialization.StringDeserializer"
   },
-  "postgresql": {       //postgresql的基础配置信息
-    "user": "demo",     //连接的用户
-    "password": "12345678",     //连接密码
-    "port": "5432",     //端口
-    "host": "192.168.1.220"     //主机IP
+  "postgresql": {                       //postgresql的基础配置信息
+    "user": "demo",                     //连接的用户
+    "password": "12345678",             //连接密码
+    "port": "5432",                     //端口
+    "host": "192.168.1.220"             //主机IP
   },
-  "datasource": [       //数据流动映射配置
+  "datasource": [                       //数据流动映射配置
     {
-      "topicToTable": {     //从Topic到数据库表，可以有多个
-        "outputData": {     //数据输出
+      "topicToTable": {                 //从Topic到数据库表，可以有多个
+        "outputData": {                 //数据输出
           "bootstrapServers": "192.168.1.220:9092",     //Kafk的机器连接信息，多个以逗号分隔host1:port1,host2:port2
-          "topicName": "demo",      //主题名称
-          "format": "json"      //数据的格式
+          "topicName": "demo",          //主题名称
         },
-        "inputData": {      //数据输入
-          "database": "demo",       //数据库名称
-          "table": "demo01"     //数据表
+        "inputData": {                  //数据输入
+          "database": "demo",           //数据库名称
+          "table": "demo01"             //数据表
         },
-        "commons": {        //其他配置
-          "threads": "2",       //启动的线程数
-          "type" : "batch",     //选用哪一种方式进行插入数据（当选择batch方式，则需要配置batchSize的属性，当配置为copy时，可以不用配置batchSize）
-          "batchSize": "2000"       //批处理的大小
+        "commons": {                    //其他配置
+          
+          "type" : "batch",             //选用哪一种方式进行插入数据（当选择batch方式，则需要配置batchSize的属性，当配置为copy时，可以不用配置batchSize）
+          "batchSize": "2000"           //批处理的大小
         },
-        "mapping": "tagName:text,tagValue:decimal,isGood:boolean,sendTS:timestamp,piTS:timestamp"       //对应关系，CSV要按照数据顺序配置
-      }
-    },
-    {
-      "topicToTable": {
-        "outputData": {
-          "bootstrapServers": "192.168.1.220:9092",
-          "topicName": "test",
-          "format": "csv",
-          "separator" : ","
-        },
-        "inputData": {
-          "database": "demo",
-          "table": "demo02"
-        },
-        "commons": {
-          "threads": "2",
-          "type" : "copy"
-        },
-        "mapping": "name:text,age:integer,tagName:text,tagValue:decimal,isGood:boolean,sendTS:timestamp,piTS:timestamp"
+        "frequency": "30",              //频率 30秒插入一批最新数据
+        "duration": "24",               //保留数据时长 保留最近24小时的数据
+        "threads": "2",                 //启动的线程数
+        "mapping": "tagName:text,tagValue:decimal,isGood:boolean,sendTS:timestamp,piTS:timestamp"               //对应关系，CSV要按照数据顺序配置
       }
     }
   ]
@@ -258,61 +226,43 @@ nohup java -jar KafkaToPG-1.0.0.jar &
 
 [3] datasource[topicToTable]
 
- 1. outputData
+1. outputData
     
-  - bootstrapServers 
- 
-    ```
-    参数名称：bootstrapServers
-    默认值：192.168.1.220:9092
-    说明：Kafka服务所在机器的地址，多个之间使用","连接
-    ``` 
-
-  - topicName 
- 
-    ```
-    参数名称：topicName
-    默认值：demo
-    说明：需要取的数据主题
-    ``` 
-
-  - format 
- 
-    ```
-    参数名称：format
-    默认值：json
-    说明：主题数据格式
-    ``` 
-
-  - separator 
- 
-    ```
-    参数名称：separator
-    默认值：，
-    说明：主题数据格式为CSV是才需要配置分隔符，其他格式可以省略此配置
-    ``` 
-
- 2. inputData
+     - bootstrapServers 
     
-  - database 
- 
-    ```
-    参数名称：database
-    默认值：demo
-    说明：PG库名称
-    ``` 
+       ```
+       参数名称：bootstrapServers
+       默认值：192.168.1.220:9092
+       说明：Kafka服务所在机器的地址，多个之间使用","连接
+       ``` 
 
-  - table 
- 
-    ```
-    参数名称：table
-    默认值：demo
-    说明：PG的库的表
-    ``` 
-
- 3. commons
+     - topicName 
     
-  - threads 
+       ```
+       参数名称：topicName
+       默认值：demo
+       说明：需要取的数据主题
+       ``` 
+
+2. inputData
+    
+     - database 
+    
+       ```
+       参数名称：database
+       默认值：demo
+       说明：PG库名称
+       ``` 
+
+     - table 
+    
+       ```
+       参数名称：table
+       默认值：demo
+       说明：PG的库的表
+       ``` 
+
+3. threads 
  
     ```
     参数名称：threads
@@ -320,23 +270,21 @@ nohup java -jar KafkaToPG-1.0.0.jar &
     说明：针对获取kafka主题的数据需要并行的线程数
     ``` 
 
-  - type 
+4. duration 
  
     ```
-    参数名称：type
-    默认值：copy,batch
-    说明：插入数据的方式,当选择了batch方式，则需要配置batchSize选项
+    参数名称：duration
+    默认值：24
+    说明：保留数据时长 保留最近24小时的数据
     ``` 
-
-  - batchSize 
+5. frequency 
  
     ```
-    参数名称：batchSize
-    默认值：2000
-    说明：批量插入的大小
+    参数名称：frequency
+    默认值：30
+    说明：频率 30秒插入一批最新数据
     ``` 
-
- 3. mapping
+6. mapping
 
     ```
     参数名称：mapping

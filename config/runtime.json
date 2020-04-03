@@ -31,7 +31,7 @@
           "table": "fengtai"
         },
         "frequency": "30",
-        "duration": "1",
+        "duration": "24",
         "threads": "1",
         "mapping": "tagname:text,tagvalue:decimal,isgood:boolean,sendts:timestamp,pits:timestamp"
       }
