@@ -16,12 +16,14 @@ import java.util.List;
  */
 @Slf4j
 public class Main {
+
     public static void main(String[] args) {
         List<Datasource> list = InitConfig.getDataSource();
         for (Datasource ds : list) {
-            for (int i = 1; i <= ds.getTopicToTable().getThreads(); i++) {
-                new InitConsumer(InitConfig.getConfigBean().getKafka(), ds.getTopicToTable());
+            for (int i = 1; i <= ds.getThreads(); i++) {
+                new InitConsumer(InitConfig.getConfigBean().getKafka(), ds);
             }
         }
     }
+
 }

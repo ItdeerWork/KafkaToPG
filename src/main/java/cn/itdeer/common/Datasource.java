@@ -12,5 +12,10 @@ import lombok.Data;
 
 @Data
 public class Datasource {
-    private TopicToTable topicToTable;
+    private String topicName;
+    private String table;
+    private Integer frequency;
+    private Integer duration;
+    private Integer threads;
+    private String mapping;
 }

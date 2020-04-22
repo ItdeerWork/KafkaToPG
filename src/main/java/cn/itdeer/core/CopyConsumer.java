@@ -1,8 +1,7 @@
 package cn.itdeer.core;
 
-import cn.itdeer.common.InitConfig;
-import cn.itdeer.common.TopicToTable;
-import com.alibaba.druid.pool.DruidDataSource;
+import cn.itdeer.common.Datasource;
+import cn.itdeer.utils.ConnectionPool;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import lombok.extern.slf4j.Slf4j;
@@ -35,12 +34,11 @@ public class CopyConsumer extends Thread {
     public static final SimpleDateFormat format = new SimpleDateFormat(DATA_FORMAT);
 
     private KafkaConsumer<String, String> consumer;
-    private TopicToTable ttt;
+    private Datasource ds;
 
     private BaseConnection baseConn;
     private CopyManager copyManager = null;
     private StringBuffer sb;
-    private DruidDataSource dds;
     private Connection connection;
 
     private Map<String, String> map;
@@ -52,17 +50,16 @@ public class CopyConsumer extends Thread {
      * 构造函数 父类进行实例化，这里直接可以使用
      *
      * @param consumer 消费者实例
-     * @param ttt      数据流向配置实例
-     * @param dds      连接池信息
+     * @param ds       数据流向配置实例
      */
-    public CopyConsumer(KafkaConsumer<String, String> consumer, TopicToTable ttt, DruidDataSource dds) {
+    public CopyConsumer(KafkaConsumer<String, String> consumer, Datasource ds) {
         this.consumer = consumer;
-        this.ttt = ttt;
-        this.dds = dds;
-        map = new HashMap<>(500);
-        deleteSql = "delete from " + ttt.getInputData().getTable() + " where sendts < ";
+        this.ds = ds;
 
-        init();
+        map = new HashMap<>(500);
+        deleteSql = "delete from " + ds.getTable() + " where loadtime < ";
+
+        initCopyManager();
     }
 
     /**
@@ -70,12 +67,11 @@ public class CopyConsumer extends Thread {
      *
      * @return CopyManager 通道管理实例
      */
-    private CopyManager init() {
-        if (copyManager == null || dds.isClosed()) {
+    private CopyManager initCopyManager() {
+        if (copyManager == null) {
             try {
                 sb = new StringBuffer();
-                dds = InitConfig.getConnectionMap().get(ttt.getInputData().getTable());
-                connection = dds.getConnection();
+                connection = ConnectionPool.INSTANCE.getConnection();
                 connection.setAutoCommit(false);
                 baseConn = (BaseConnection) connection.getMetaData().getConnection();
                 copyManager = new CopyManager(baseConn);
@@ -93,66 +89,56 @@ public class CopyConsumer extends Thread {
      */
     @Override
     public void run() {
-        long endTime = System.currentTimeMillis() + ttt.getFrequency() * 1000;
-        long durationEndTime = System.currentTimeMillis() - ttt.getDuration() * 3600000;
+
+        long endTime = System.currentTimeMillis() + ds.getFrequency() * 1000;
+        long durationEndTime = System.currentTimeMillis() - ds.getDuration() * 3600000;
 
         try {
             while (true) {
                 ConsumerRecords<String, String> records = consumer.poll(100);
-
                 long nowTime = System.currentTimeMillis();
 
-                for (ConsumerRecord<String, String> record : records) {
-                    JSONObject data;
-                    try {
-                        data = JSON.parseObject(record.value());
-
-                        boolean isGood = data.getBoolean("isGood");
-                        if (!isGood) {
-                            continue;
-                        }
-
-                        String tagName = data.getString("tagName");
-                        Object tagValue = data.get("tagValue");
-                        Object sendTS = data.get("sendTS");
-                        Object piTS = data.get("piTS");
-                        String message = tagValue + "," + isGood + "," + sendTS + "," + piTS;
-
-                        map.put(tagName, message);
-                    } catch (Exception e) {
-                        log.error("Insert mode is [copy], Kafka data format is [json], An error occurred while parsing [{}] data. The error information is as follows:[{}]", record.value(), e.getStackTrace());
+                try {
+                    for (ConsumerRecord<String, String> record : records) {
+                        JSONObject data = JSON.parseObject(record.value());
+                        map.put(data.getString("tagName"), data.get("tagValue") + "," + data.get("piTS") + "," + data.get("sendTS"));
                     }
+                } catch (Exception e) {
+                    log.error("An error occurred while parsing json data. The error information is as follows:[{}]", e.getStackTrace());
                 }
 
                 if (nowTime >= endTime) {
+
                     if (connection.isClosed())
-                        init();
+                        initCopyManager();
+
                     for (String key : map.keySet()) {
                         sb.append(key + ",").append(map.get(key) + "\n");
                     }
 
-                    copyManager.copyIn("COPY " + ttt.getInputData().getTable() + " FROM STDIN USING DELIMITERS ','", new ByteArrayInputStream(sb.toString().getBytes("UTF-8")));
+                    copyManager.copyIn("COPY " + ds.getTable() + " FROM STDIN USING DELIMITERS ','", new ByteArrayInputStream(sb.toString().getBytes("UTF-8")));
+                    log.info("Use copy to successfully write a batch of JSON format data to TimeScaleDB database, the length is:[{}]", map.size());
+
                     String deleteTime = format.format(new Date(durationEndTime));
                     String sql = deleteSql;
                     sql = sql + "'" + deleteTime + "'";
-                    statement.execute(sql);
+                    int delleteNumber = statement.executeUpdate(sql);
+                    log.info("delete {} data before {}",delleteNumber, format.format(new Date(durationEndTime)));
 
                     baseConn.commit();
                     baseConn.purgeTimerTasks();
-
-                    log.info("Use copy to successfully write a batch of JSON format data to TimeScaleDB database, the length is:[{}]", map.size());
-                    log.info("delete a batch data of {} before", format.format(new Date(durationEndTime)));
+                    connection.commit();
 
                     sb.setLength(0);
-                    endTime = System.currentTimeMillis() + ttt.getFrequency() * 1000;
-                    durationEndTime = System.currentTimeMillis() - ttt.getDuration() * 3600000;
+                    endTime = System.currentTimeMillis() + ds.getFrequency() * 1000;
+                    durationEndTime = System.currentTimeMillis() - ds.getDuration() * 3600000;
                 }
+
                 consumer.commitAsync();
             }
         } catch (Exception e) {
             log.error("Parsing kafka json format data to write data to postgresql error message is as follows:[{}]", e);
             close();
-            init();
         } finally {
             try {
                 consumer.commitSync();
@@ -177,9 +163,6 @@ public class CopyConsumer extends Thread {
             if (baseConn != null) {
                 baseConn.close();
             }
-            if (dds != null) {
-                dds.discardConnection(connection);
-            }
         } catch (SQLException e) {
             log.error("The closing resource error message is as follows: [{}]", e.getStackTrace());
         }
@@ -190,8 +173,8 @@ public class CopyConsumer extends Thread {
      */
     private void closeAll() {
         close();
-        if (ttt != null) {
-            ttt = null;
+        if (ds != null) {
+            ds = null;
         }
         if (consumer != null) {
             consumer.close();

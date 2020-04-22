@@ -1,15 +1,13 @@
 package cn.itdeer.core;
 
-import cn.itdeer.common.InitConfig;
+import cn.itdeer.common.Datasource;
 import cn.itdeer.common.Kafka;
-import cn.itdeer.common.TopicToTable;
 import com.alibaba.druid.pool.DruidDataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 import java.util.Arrays;
-import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -29,13 +27,13 @@ public class InitConsumer {
      * 构造函数 初始化Consumer的实例
      *
      * @param kafka Kafka消费之的基础信息
-     * @param ttt   从Kafka到表的配置信息
+     * @param ds    从Kafka到表的配置信息
      */
-    public InitConsumer(Kafka kafka, TopicToTable ttt) {
+    public InitConsumer(Kafka kafka, Datasource ds) {
 
         Properties properties = new Properties();
-        properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, ttt.getOutputData().getBootstrapServers());
-        properties.put(ConsumerConfig.GROUP_ID_CONFIG, ttt.getOutputData().getTopicName() + "_" + kafka.getGroupIdSuffix());
+        properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
+        properties.put(ConsumerConfig.GROUP_ID_CONFIG, ds.getTopicName() + "_" + kafka.getGroupIdSuffix());
         properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, kafka.getKeyDeserializerClass());
         properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, kafka.getValueDeserializerClass());
         properties.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, kafka.getAutoCommitIntervalMs());
@@ -49,15 +47,12 @@ public class InitConsumer {
         properties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, kafka.getEnableAutoCommit());
 
         consumer = new KafkaConsumer(properties);
-        consumer.subscribe(Arrays.asList(ttt.getOutputData().getTopicName()));
-
-        Map<String, DruidDataSource> map = InitConfig.getConnectionMap();
-        dds = map.get(ttt.getInputData().getTable());
+        consumer.subscribe(Arrays.asList(ds.getTopicName()));
 
         try {
-            new CopyConsumer(consumer, ttt, dds).start();
+            new CopyConsumer(consumer, ds).start();
         } catch (Exception e) {
-            log.error("Error retrieving connection from connection pool or instantiating processing instance. Error message:[{}]", e.getStackTrace());
+            log.error("An error occurred starting a CopyConsumer to start work. Error message:[{}]", e.getStackTrace());
         }
     }
 }

@@ -12,6 +12,7 @@ import lombok.Data;
 
 @Data
 public class Kafka {
+    private String bootstrapServers;
     private String groupIdSuffix;
     private String autoCommitIntervalMs;
     private String maxPollRecords;

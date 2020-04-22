@@ -16,6 +16,5 @@ import java.util.List;
 @Data
 public class ConfigBean {
     private Kafka kafka;
-    private Postgresql postgresql;
     private List<Datasource> datasource;
 }
