@@ -5,7 +5,7 @@ import com.alibaba.fastjson.JSON;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.*;
-import java.sql.SQLException;
+import java.sql.Connection;
 import java.util.List;
 
 import static cn.itdeer.utils.Constants.CONFIG_FILE_DIRECTORY;
@@ -68,15 +68,18 @@ public class InitConfig {
     private static void initTable() {
         log.info("Initializes table information ......");
         List<Datasource> list = getDataSource();
-        for (Datasource ds : list) {
-            try {
+
+        Connection connection;
+        try {
+            connection = ConnectionPool.INSTANCE.getConnection();
+            for (Datasource ds : list) {
                 String sql = splitMapping(ds.getMapping(), ds.getTable());
-                ConnectionPool.INSTANCE.getConnection().prepareStatement(sql).execute();
-                //ConnectionPool.INSTANCE.getConnection().prepareStatement("SELECT create_hypertable('" + ds.getTable() + "', 'loadtime');").execute();
+                connection.prepareStatement(sql).execute();
+                //connection.prepareStatement("SELECT create_hypertable('" + ds.getTable() + "', 'loadtime');").execute();
                 log.info("The table structure was created successfully for the table name [{}]", ds.getTable());
-            } catch (SQLException e) {
-                log.info("An exception occurred when creating the table. The exception information is as follows: [{}]:", e.getStackTrace());
             }
+        } catch (Exception e) {
+            log.info("An exception occurred when creating the table. The exception information is as follows: [{}]:", e.getStackTrace());
         }
     }
 

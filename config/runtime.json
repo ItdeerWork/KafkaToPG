@@ -1,6 +1,6 @@
 {
   "kafka": {
-    "bootstrapServers": "192.168.1.100:9092",
+    "bootstrapServers": "znhcy-edcjr-01.edcadp.zhenergy.com.cn:6667,znhcy-edcjr-02.edcadp.zhenergy.com.cn:6667,znhcy-edcjr-03.edcadp.zhenergy.com.cn:6667",
     "groupIdSuffix": "GROUP_ID_PDI",
     "autoCommitIntervalMs": "1000",
     "maxPollRecords": "100000",
@@ -9,18 +9,26 @@
     "sessionTimeoutMs": "10000",
     "heartbeatIntervalMs": "3000",
     "maxPollIntervalMs": "60000",
-    "autoOffsetReset": "earliest",
+    "autoOffsetReset": "latest",
     "enableAutoCommit": "false",
     "keyDeserializerClass": "org.apache.kafka.common.serialization.StringDeserializer",
     "valueDeserializerClass": "org.apache.kafka.common.serialization.StringDeserializer"
   },
   "datasource": [
     {
-      "topicName": "fengtai",
+      "topicName": "DC_PI_DL_YUEQING_PROD",
+      "table": "yueqing",
+      "frequency": "60",
+      "duration": "2",
+      "threads": "3",
+      "mapping": "tagname:text,tagvalue:decimal,pits:timestamp,loadtime:timestamp"
+    },
+    {
+      "topicName": "DC_PI_DL_FENGTAI_PROD",
       "table": "fengtai",
-      "frequency": "20",
-      "duration": "6",
-      "threads": "1",
+      "frequency": "60",
+      "duration": "2",
+      "threads": "3",
       "mapping": "tagname:text,tagvalue:decimal,pits:timestamp,loadtime:timestamp"
     }
   ]

@@ -1,13 +1,12 @@
 package cn.itdeer.core;
 
-import cn.itdeer.common.Datasource;
 import cn.itdeer.common.Kafka;
-import com.alibaba.druid.pool.DruidDataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -21,19 +20,19 @@ import java.util.Properties;
 public class InitConsumer {
 
     private KafkaConsumer<String, String> consumer;
-    private DruidDataSource dds;
 
     /**
      * 构造函数 初始化Consumer的实例
      *
      * @param kafka Kafka消费之的基础信息
-     * @param ds    从Kafka到表的配置信息
+     * @param topicName    从Kafka到表的配置信息
+     * @param map   从Kafka到表的配置信息
      */
-    public InitConsumer(Kafka kafka, Datasource ds) {
+    public InitConsumer(Kafka kafka, String topicName, Map<String, String> map) {
 
         Properties properties = new Properties();
         properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
-        properties.put(ConsumerConfig.GROUP_ID_CONFIG, ds.getTopicName() + "_" + kafka.getGroupIdSuffix());
+        properties.put(ConsumerConfig.GROUP_ID_CONFIG, topicName + "_" + kafka.getGroupIdSuffix());
         properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, kafka.getKeyDeserializerClass());
         properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, kafka.getValueDeserializerClass());
         properties.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, kafka.getAutoCommitIntervalMs());
@@ -47,12 +46,13 @@ public class InitConsumer {
         properties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, kafka.getEnableAutoCommit());
 
         consumer = new KafkaConsumer(properties);
-        consumer.subscribe(Arrays.asList(ds.getTopicName()));
+        consumer.subscribe(Arrays.asList(topicName));
 
         try {
-            new CopyConsumer(consumer, ds).start();
+            new CopyConsumer(consumer, map).start();
         } catch (Exception e) {
             log.error("An error occurred starting a CopyConsumer to start work. Error message:[{}]", e.getStackTrace());
         }
     }
+
 }
