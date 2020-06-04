@@ -2,7 +2,8 @@ package cn.itdeer.core;
 
 import cn.itdeer.common.Datasource;
 import cn.itdeer.utils.ConnectionPool;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.postgresql.copy.CopyManager;
 import org.postgresql.core.BaseConnection;
 
@@ -21,8 +22,9 @@ import java.util.Map;
  * CreatorName : itdeer.cn
  * CreateTime : 2020/4/23/22:30
  */
-@Slf4j
 public class DataOperate implements Runnable {
+
+    private static final Logger log = LogManager.getLogger(DataOperate.class);
 
     public static final String DATA_FORMAT = "yyyy-MM-dd HH:mm:ss";
     public static final SimpleDateFormat format = new SimpleDateFormat(DATA_FORMAT);
@@ -86,6 +88,9 @@ public class DataOperate implements Runnable {
      */
     private void insertData() {
         try {
+            if (baseConn.isClosed())
+                initCopyManager();
+
             for (String key : map.keySet()) {
                 sb.append(key + ",").append(map.get(key) + "\n");
             }
@@ -113,6 +118,7 @@ public class DataOperate implements Runnable {
 
         try {
             int delleteNumber = statement.executeUpdate(sql);
+            connection.commit();
             log.info("Delete {} data before {} in table {} successfully", delleteNumber, deleteTime, ds.getTable());
         } catch (SQLException e) {
             log.info("The data before {} in table {} failed to be deleted. The error message is as follows :{}", deleteTime, ds.getTable(), e.getStackTrace());

@@ -1,9 +1,10 @@
 package cn.itdeer.core;
 
 import cn.itdeer.common.Kafka;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -16,8 +17,9 @@ import java.util.Properties;
  * CreatorName : itdeer.cn
  * CreateTime : 2019/8/16/9:45
  */
-@Slf4j
 public class InitConsumer {
+
+    private static final Logger log = LogManager.getLogger(DataOperate.class);
 
     private KafkaConsumer<String, String> consumer;
 

@@ -1,6 +1,7 @@
 package cn.itdeer.utils;
 
-import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -16,8 +17,10 @@ import static cn.itdeer.utils.Constants.PG_FILE_NAME;
  * CreatorName : itdeer.cn
  * CreateTime : 2020/4/21/12:06
  */
-@Slf4j
+
 public class DataBaseConfig {
+
+    private static final Logger log = LogManager.getLogger(DataBaseConfig.class);
 
     private static Properties prop = null;
     private static FileInputStream in = null;

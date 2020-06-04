@@ -3,7 +3,8 @@ package cn.itdeer.utils;
 import com.alibaba.druid.pool.DruidDataSource;
 import com.alibaba.druid.pool.DruidDataSourceFactory;
 import com.alibaba.druid.pool.DruidPooledConnection;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.sql.SQLException;
 import java.util.Properties;
@@ -15,7 +16,6 @@ import java.util.Properties;
  * CreatorName : itdeer.cn
  * CreateTime : 2020/4/21/12:05
  */
-@Slf4j
 public enum ConnectionPool {
     INSTANCE;
 
@@ -28,6 +28,8 @@ public enum ConnectionPool {
     }
 
     private DruidDataSource dataSource = null;
+
+    private static final Logger log = LogManager.getLogger(ConnectionPool.class);
 
     /**
      * 初始化连接池

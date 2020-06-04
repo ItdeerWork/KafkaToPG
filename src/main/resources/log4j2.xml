@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration status="WARN" monitorInterval="30">
+
+    <Properties>
+        <Property name="baseDir">logs</Property>
+        <Property name="infoFile">info</Property>
+        <Property name="errorFile">error</Property>
+    </Properties>
+
+    <appenders>
+        <!--控制台输出配置-->
+        <console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="[%d{yyyy-MM-dd HH:mm:ss}] [%p] [%c{1}:%L]   %m%n"/>
+        </console>
+
+        <!--INFO输出配置-->
+        <RollingFile name="RollingFileInfo" fileName="${baseDir}/${infoFile}.log" filePattern="${baseDir}/${infoFile}-%d{yyyy-MM-dd}-%i.log">
+
+            <Filters>
+                <ThresholdFilter level="warn"  onMatch="DENY" onMismatch="NEUTRAL"/>
+                <ThresholdFilter level="info" onMatch="ACCEPT" onMismatch="DENY"/>
+            </Filters>
+
+            <PatternLayout pattern="[%d{yyyy-MM-dd HH:mm:ss}] [%p] [%c{1}:%L]   %m%n"/>
+
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+                <SizeBasedTriggeringPolicy size="200 MB"/>
+            </Policies>
+
+            <DefaultRolloverStrategy>
+                <Delete basePath="${baseDir}" maxDepth="2">
+                    <IfFileName glob="${infoFile}-*.log" />
+                    <IfLastModified age="3d" />
+                </Delete>
+            </DefaultRolloverStrategy>
+
+        </RollingFile>
+
+        <!--ERROR输出配置-->
+        <RollingFile name="RollingFileError" fileName="${baseDir}/${errorFile}.log" filePattern="${baseDir}/${errorFile}-%d{yyyy-MM-dd}-%i.log">
+
+            <ThresholdFilter level="error" onMatch="ACCEPT" onMismatch="DENY"/>
+
+            <PatternLayout pattern="[%d{yyyy-MM-dd HH:mm:ss}] [%p] [%c{1}:%L]   %m%n"/>
+
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+                <SizeBasedTriggeringPolicy size="200 MB"/>
+            </Policies>
+
+            <DefaultRolloverStrategy>
+                <Delete basePath="${baseDir}" maxDepth="2">
+                    <IfFileName glob="${errorFile}-*.log" />
+                    <IfLastModified age="3d" />
+                </Delete>
+            </DefaultRolloverStrategy>
+
+        </RollingFile>
+
+    </appenders>
+
+    <loggers>
+        <root level="all">
+            <appender-ref ref="RollingFileInfo"/>
+            <appender-ref ref="RollingFileError"/>
+        </root>
+    </loggers>
+
+</configuration>

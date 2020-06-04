@@ -2,7 +2,8 @@ package cn.itdeer.common;
 
 import cn.itdeer.utils.ConnectionPool;
 import com.alibaba.fastjson.JSON;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.*;
 import java.sql.Connection;
@@ -18,8 +19,9 @@ import static cn.itdeer.utils.Constants.CONFIG_FILE_NAME;
  * CreatorName : itdeer.cn
  * CreateTime : 2019/7/9/15:27
  */
-@Slf4j
 public class InitConfig {
+
+    private static final Logger log = LogManager.getLogger(InitConfig.class);
 
     private static ConfigBean cb;
     private static StringBuffer sb = new StringBuffer();

@@ -21,7 +21,7 @@
       "frequency": "60",
       "duration": "2",
       "threads": "3",
-      "mapping": "tagname:text,tagvalue:decimal,pits:timestamp,loadtime:timestamp"
+      "mapping": "tagname:varchar(32),tagvalue:varchar(20),pits:timestamp(6),loadtime:timestamp(6)"
     },
     {
       "topicName": "DC_PI_DL_FENGTAI_PROD",
@@ -29,7 +29,7 @@
       "frequency": "60",
       "duration": "2",
       "threads": "3",
-      "mapping": "tagname:text,tagvalue:decimal,pits:timestamp,loadtime:timestamp"
+      "mapping": "tagname:varchar(32),tagvalue:varchar(20),pits:timestamp(6),loadtime:timestamp(6)"
     }
   ]
 }

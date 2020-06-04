@@ -2,10 +2,11 @@ package cn.itdeer.core;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.Map;
 
@@ -16,8 +17,9 @@ import java.util.Map;
  * CreatorName : itdeer.cn
  * CreateTime : 2019/8/16/10:32
  */
-@Slf4j
 public class CopyConsumer extends Thread {
+
+    private static final Logger log = LogManager.getLogger(CopyConsumer.class);
 
     private KafkaConsumer<String, String> consumer;
     private Map<String, String> map;

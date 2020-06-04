@@ -4,7 +4,8 @@ import cn.itdeer.common.Datasource;
 import cn.itdeer.common.InitConfig;
 import cn.itdeer.core.DataOperate;
 import cn.itdeer.core.InitConsumer;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.List;
 import java.util.Map;
@@ -20,8 +21,10 @@ import java.util.concurrent.TimeUnit;
  * CreatorName : itdeer.cn
  * CreateTime : 2019/8/13/15:17
  */
-@Slf4j
+
 public class Main {
+
+    private static final Logger log = LogManager.getLogger(Main.class);
 
     public static void main(String[] args) throws Exception {
         List<Datasource> list = InitConfig.getDataSource();
