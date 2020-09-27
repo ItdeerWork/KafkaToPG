@@ -9,9 +9,7 @@ import org.postgresql.core.BaseConnection;
 
 import java.io.ByteArrayInputStream;
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.sql.Statement;
-import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Map;
 
@@ -26,16 +24,12 @@ public class DataOperate implements Runnable {
 
     private static final Logger log = LogManager.getLogger(DataOperate.class);
 
-    public static final String DATA_FORMAT = "yyyy-MM-dd HH:mm:ss";
-    public static final SimpleDateFormat format = new SimpleDateFormat(DATA_FORMAT);
-
     private Connection connection;
     private Statement statement;
     private BaseConnection baseConn;
     private CopyManager copyManager;
-    private StringBuffer sb;
+    private static StringBuffer sb;
 
-    private String deleteSql;
     private Datasource ds;
     private Map<String, String> map;
 
@@ -47,7 +41,6 @@ public class DataOperate implements Runnable {
      */
     public DataOperate(Datasource ds, Map<String, String> map) {
         this.ds = ds;
-        this.deleteSql = "delete from " + ds.getTable() + " where loadtime < ";
         this.map = map;
 
         sb = new StringBuffer();
@@ -61,13 +54,15 @@ public class DataOperate implements Runnable {
      */
     private CopyManager initCopyManager() {
         try {
-            connection = ConnectionPool.INSTANCE.getConnection();
-            connection.setAutoCommit(false);
-            statement = connection.createStatement();
+            connection = ConnectionPool.INSTANCE.getConnection().getConnection();
+            if (connection != null) {
+                connection.setAutoCommit(false);
+                statement = connection.createStatement();
+                baseConn = (BaseConnection) connection.getMetaData().getConnection();
+                baseConn.setAutoCommit(false);
+                copyManager = new CopyManager(baseConn);
+            }
 
-            baseConn = (BaseConnection) connection.getMetaData().getConnection();
-            baseConn.setAutoCommit(false);
-            copyManager = new CopyManager(baseConn);
         } catch (Exception e) {
             log.error("Error retrieving connection from connection pool or instantiating processing instance. Error message:[{}]", e.getStackTrace());
         }
@@ -80,7 +75,6 @@ public class DataOperate implements Runnable {
     @Override
     public void run() {
         insertData();
-        deleteData();
     }
 
     /**
@@ -88,9 +82,6 @@ public class DataOperate implements Runnable {
      */
     private void insertData() {
         try {
-            if (baseConn.isClosed())
-                initCopyManager();
-
             for (String key : map.keySet()) {
                 sb.append(key + ",").append(map.get(key) + "\n");
             }
@@ -99,29 +90,11 @@ public class DataOperate implements Runnable {
             log.info("Use copy to successfully write {} pieces of data to table {} of timescaleDB", map.size(), ds.getTable());
             baseConn.commit();
             baseConn.purgeTimerTasks();
-
             sb.setLength(0);
         } catch (Exception e) {
             log.error("Failed to write data to table {} of timescaleDB using copy The error message is as follows :{}", ds.getTable(), e.getStackTrace());
-        }
-    }
-
-    /**
-     * 删除数据
-     */
-    private void deleteData() {
-        long durationEndTime = System.currentTimeMillis() - ds.getDuration() * 3600000;
-        String deleteTime = format.format(new Date(durationEndTime));
-
-        String sql = deleteSql;
-        sql = sql + "'" + deleteTime + "'";
-
-        try {
-            int delleteNumber = statement.executeUpdate(sql);
-            connection.commit();
-            log.info("Delete {} data before {} in table {} successfully", delleteNumber, deleteTime, ds.getTable());
-        } catch (SQLException e) {
-            log.info("The data before {} in table {} failed to be deleted. The error message is as follows :{}", deleteTime, ds.getTable(), e.getStackTrace());
+            copyManager = null;
+            initCopyManager();
         }
     }
 

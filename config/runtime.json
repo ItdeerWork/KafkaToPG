@@ -1,6 +1,6 @@
 {
   "kafka": {
-    "bootstrapServers": "znhcy-edcjr-01.edcadp.zhenergy.com.cn:6667,znhcy-edcjr-02.edcadp.zhenergy.com.cn:6667,znhcy-edcjr-03.edcadp.zhenergy.com.cn:6667",
+    "bootstrapServers": "192.168.1.100:9092",
     "groupIdSuffix": "GROUP_ID_PDI",
     "autoCommitIntervalMs": "1000",
     "maxPollRecords": "100000",
@@ -16,19 +16,11 @@
   },
   "datasource": [
     {
-      "topicName": "DC_PI_DL_YUEQING_PROD",
-      "table": "yueqing",
+      "topicName": "demo",
+      "table": "demo",
       "frequency": "60",
       "duration": "2",
-      "threads": "3",
-      "mapping": "tagname:varchar(32),tagvalue:varchar(20),pits:timestamp(6),loadtime:timestamp(6)"
-    },
-    {
-      "topicName": "DC_PI_DL_FENGTAI_PROD",
-      "table": "fengtai",
-      "frequency": "60",
-      "duration": "2",
-      "threads": "3",
+      "threads": "1",
       "mapping": "tagname:varchar(32),tagvalue:varchar(20),pits:timestamp(6),loadtime:timestamp(6)"
     }
   ]

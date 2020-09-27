@@ -38,6 +38,8 @@ public enum ConnectionPool {
         Properties properties = new DataBaseConfig().getProp();
         try {
             dataSource = (DruidDataSource) DruidDataSourceFactory.createDataSource(properties);
+            dataSource.setBreakAfterAcquireFailure(false);
+            dataSource.setConnectionErrorRetryAttempts(500);
         } catch (Exception e) {
             log.error("An exception occurred to initialize the DataBase library connection pool. The exception information is as follows [{}]", e.getStackTrace());
         }
@@ -69,11 +71,7 @@ public enum ConnectionPool {
      * @return 数据库连接
      * @throws SQLException SQL异常
      */
-    public DruidPooledConnection getConnection() throws SQLException {
-        if (!dataSource.isKeepAlive()) {
-            init();
-        }
-
+    public DruidPooledConnection getConnection() {
         DruidPooledConnection dpc;
         try {
             dpc = dataSource.getConnection();
@@ -82,6 +80,6 @@ public enum ConnectionPool {
         } catch (SQLException e) {
             log.error("Get the connection empty from the connection pool error message: [{}]", e.getStackTrace());
         }
-        throw new SQLException();
+        return null;
     }
 }
